@@ -1,4 +1,6 @@
-opencv-contrib-python
+# Should add the venv/lib/cv2 folder to the python interpreter path in pycharm setting to activate code completion.
+# see: https://stackoverflow.com/questions/68669767/pycharm-can%c2%b4t-find-reference-of-any-opencv-function-in-init-py/73087052#73087052
+opencv-python
 scikit-image
 Pillow
 matplotlib
