@@ -10,33 +10,36 @@ from loader import ImageLoader, TranformLoader
 # Interactive plot mode
 # matplotlib.use('TkAgg')
 
-class Warper:
-    def __init__(self, image: ImageLoader, tranform: TranformLoader, base_image: np.ndarray = None):
+class Warper:   # todo: once we have sift, create transformation hierarchy(tree form)
+    def __init__(self, image: ImageLoader, tranform: TranformLoader):
         """
         Warps <image> with <transform> and pastes it to <base_image>, if <base_image> does not exist, one is created.
         """
         self.image_loader = image
         self.transform_loader = tranform
-        self.base_image = base_image
-        if base_image is None:
-            self.base_image = np.zeros(shape=(tranform.width, tranform.height))
+        self.warped_images = []
 
-    def warp(self, grayscale=True) -> np.ndarray:
+    def warp_first(self, grayscale=True) -> np.ndarray:
         # if self.transform.type == TranformLoader.Type.AFFINE: # todo: check why our transforms have values in the last row.
         #     transform_func = cv2.warpAffine
         # else:  # Homography
         #     transform_func = cv2.warpPerspective
         image = self.image_loader.grayscale_image if grayscale else self.image_loader.color_image
-        transform = self.transform_loader.transform()
-        self.base_image = cv2.warpPerspective(image, inv(transform),
-                                              (self.transform_loader.width, self.transform_loader.height),
-                                              self.base_image, flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP)
-        return self.base_image
+        transform = self.transform_loader.transform
+        self.warped_images.append(self.warp(image, transform))
+        return self.warped_images[0]
+
+    def warp(self, image: np.ndarray, transform: np.ndarray):
+        return cv2.warpPerspective(image, inv(transform),
+                                   (self.transform_loader.width, self.transform_loader.height),
+                                   self.blank_full_image, flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP)
+
+    @property
+    def blank_full_image(self):
+        return np.zeros(shape=(self.transform_loader.width, self.transform_loader.height))
 
 
 if __name__ == '__main__':
-    # todo add file manager: given puzzle directory, return path to tranform and to image dir
-
     transform = TranformLoader(r'assignment_1\puzzles\puzzle_affine_1\warp_mat_1__H_521__W_760_.txt')
     # transform = TranformLoader(r'assignment_1\puzzles\puzzle_affine_2\warp_mat_1__H_537__W_735_.txt')
     transform.load()
