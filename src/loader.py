@@ -6,7 +6,6 @@ from enum import Enum
 from abc import ABC, abstractmethod
 
 
-
 class PuzzleType(Enum):
     AFFINE = 'affine'
     HOMOGRAPHY = 'homography'
@@ -36,11 +35,15 @@ class ImageLoader(Loader):
         self.grayscale_image = cv2.cvtColor(self.color_image, cv2.COLOR_BGR2GRAY)
 
     @property
-    def color_img(self):
+    def color_img(self) -> np.ndarray:
         return self.color_image.copy()
 
-    def grayscale_img(self):
+    def grayscale_img(self) -> np.ndarray:
         return self.grayscale_image.copy()
+
+    @property
+    def image_index(self) -> int:
+        return int(self.path.split('.', maxsplit=1)[0].rsplit('_', maxsplit=1)[-1])
 
 
 class TranformLoader(Loader):

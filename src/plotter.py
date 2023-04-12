@@ -1,10 +1,12 @@
+import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-
 # Interactive plot mode
-# import matplotlib
-# matplotlib.use('TkAgg')
+import matplotlib
+
+matplotlib.use('TkAgg')
+
 
 def show_image(image: np.ndarray, grayscale=True):
     plt.figure()
@@ -32,12 +34,22 @@ def compare_images(image1, image2, grayscale=True):
     plt.show()
 
 
-if __name__ == '__main__':
-    from src.loader import ImageLoader, PathLoader, PuzzleType
+def add_keypoints(image: np.ndarray, keypoints):
+    annotated_image = np.zeros(image.shape)
+    annotated_image = cv2.drawKeypoints(image, keypoints, annotated_image,
+                                        flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+    return annotated_image
 
-    path = PathLoader(1, PuzzleType.AFFINE)
-    image1 = ImageLoader(path.get_image(1))
-    image2 = ImageLoader(path.get_image(2))
-    compare_images(image1.grayscale_image, image2.grayscale_image)
-    compare_images(image1.color_image, image2.color_image, grayscale=False)
-    show_image(image1.grayscale_image)
+
+def draw_matches(image1: np.ndarray, image2: np.ndarray, matcher, matches_mask=None):
+    unmatched_color = 255, 0, 0
+    matched_color = 0, 255, 0
+    # unmatched_color = None
+    # matched_color = None
+    annotated = cv2.drawMatches(image1, matcher.source_data.keypoints, image2, matcher.dest_data.keypoints,
+                                outImg=None, matchColor=matched_color,
+                                # singlePointColor=unmatched_color, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS,
+                                singlePointColor=unmatched_color, flags=cv2.DrawMatchesFlags_DRAW_RICH_KEYPOINTS,
+                                # singlePointColor=unmatched_color, flags=cv2.DrawMatchesFlags_DEFAULT,
+                                matchesMask=matches_mask, matches1to2=tuple(matcher.get_matched()), matchesThickness=1)
+    return annotated
