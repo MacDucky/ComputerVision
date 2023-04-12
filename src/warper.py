@@ -50,8 +50,8 @@ if __name__ == '__main__':
 
     new_image = np.zeros(shape=(transform.height, transform.width))
 
-    warper = Warper(image, transform, base_image=new_image)
-    new_image = warper.warp()
+    warper = Warper(image, transform)
+    new_image = warper.warp_first()
 
     plt.figure()
     plt.subplot(1, 2, 1)  # last param is the subplot number
