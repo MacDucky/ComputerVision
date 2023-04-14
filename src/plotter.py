@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 
 # Interactive plot mode
 import matplotlib
-
 matplotlib.use('TkAgg')
 
 
@@ -48,8 +47,8 @@ def draw_matches(image1: np.ndarray, image2: np.ndarray, matcher, matches_mask=N
     # matched_color = None
     annotated = cv2.drawMatches(image1, matcher.source_data.keypoints, image2, matcher.dest_data.keypoints,
                                 outImg=None, matchColor=matched_color,
-                                # singlePointColor=unmatched_color, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS,
                                 singlePointColor=unmatched_color, flags=cv2.DrawMatchesFlags_DRAW_RICH_KEYPOINTS,
+                                # singlePointColor=unmatched_color, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS,
                                 # singlePointColor=unmatched_color, flags=cv2.DrawMatchesFlags_DEFAULT,
                                 matchesMask=matches_mask, matches1to2=tuple(matcher.get_matched()), matchesThickness=1)
     return annotated

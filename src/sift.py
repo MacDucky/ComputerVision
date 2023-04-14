@@ -44,7 +44,7 @@ class SiftMatcher:
                 self.matches[row] = min2_indices[row][0]
 
     def get_matched(self):
-        """ Generates matched tuples of (keypoint, descriptor) """
+        """ Generates match map between keypoints """
         for i, j in self.matches.items():
             yield DMatch(_distance=self.__diffmatrix[i, j], _queryIdx=i, _trainIdx=j,
                          _imgIdx=0)  # fixme, imgIdx==dest image index in comparison
@@ -77,8 +77,8 @@ if __name__ == '__main__':
     #         matches[row] = a[row][0]
 
     path = PathLoader(1, PuzzleType.AFFINE)
-    image1 = ImageLoader(path.get_image(3))
-    image2 = ImageLoader(path.get_image(4))
+    image1 = ImageLoader(path.get_image_path(1))
+    image2 = ImageLoader(path.get_image_path(2))
     final_image = draw_matches(image1.grayscale_image, image2.grayscale_image,
                                SiftMatcher(SiftData(image1), SiftData(image2)))
     show_image(final_image)

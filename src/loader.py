@@ -46,7 +46,7 @@ class ImageLoader(Loader):
         return int(self.path.split('.', maxsplit=1)[0].rsplit('_', maxsplit=1)[-1])
 
 
-class TranformLoader(Loader):
+class TransformLoader(Loader):
     """ Loads transformation file. --> [transform, transform_type, height, width]"""
 
     def __init__(self, path: str):
@@ -83,12 +83,21 @@ class PathLoader:
         warp_file_full_name = list(filter(lambda x: x.startswith('warp'), os.listdir(transform_path)))[0]
         self.transform_path = os.path.join(transform_path, warp_file_full_name)
 
-    def get_image(self, image_num: int) -> str | None:
+    def get_image_path(self, image_num: int) -> str | None:
         files = os.listdir(self.images_path)
         for file in files:
-            num = file.split('.')[0].split('_')[-1]
-            if int(num) == image_num:
+            num = self.__extract_image_index(file)
+            if num == image_num:
                 break
         else:
             return None
         return os.path.join(self.images_path, file)
+
+    @staticmethod
+    def __extract_image_index(image_path: str) -> int:
+        return int(image_path.split('.')[0].split('_')[-1])
+
+    @property
+    def all_images(self):
+        for image_path in os.listdir(self.images_path):
+            yield self.get_image_path(self.__extract_image_index(image_path))

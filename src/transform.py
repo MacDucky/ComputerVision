@@ -1,9 +1,12 @@
+from typing import Self
+
 import cv2
 import numpy as np
+from abc import ABC, abstractmethod
 from numpy.linalg import inv
 
-from src.loader import *
-from src.sift import SiftMatcher, SiftData
+from loader import *
+from sift import SiftMatcher, SiftData
 
 
 class Transform:
@@ -23,35 +26,52 @@ class Transform:
     def itransform(self):
         return self._itransform.copy()
 
+    @property
+    @abstractmethod
+    def type(self) -> PuzzleType:
+        pass
+
+    @classmethod
+    def from_transform(cls, transform: np.ndarray, type_: PuzzleType) -> Self:
+        instance = AffineTransform([]) if type_ == PuzzleType.AFFINE else HomographyTransform([])
+        instance._transform = transform
+        instance._itransform = inv(transform)
+        return instance
+
 
 class AffineTransform(Transform):
-    KP_NUM = 3
-
     def __init__(self, keypoint_matches: list[tuple[cv2.KeyPoint, cv2.KeyPoint]]):
         super().__init__(keypoint_matches)
-        if len(keypoint_matches) != self.KP_NUM:
-            raise ValueError(f'Affine transformations require {self.KP_NUM} matches')
-        self._transform: np.ndarray = np.vstack(
-            [cv2.getAffineTransform(self.source_points, self.dest_points), [0, 0, 1]])
-        self._itransform: np.ndarray = inv(self._transform)
+        if keypoint_matches:
+            self._transform: np.ndarray = np.vstack(
+                [cv2.getAffineTransform(self.source_points, self.dest_points), [0, 0, 1]])
+            self._itransform: np.ndarray = None
+            eigen_ratio, self._itransform = cv2.invert(self._transform,
+                                                       flags=cv2.DECOMP_SVD)  # inv(self._transform)
+            i = 0
+
+    @property
+    def type(self):
+        return PuzzleType.AFFINE
 
 
 class HomographyTransform(Transform):
-    KP_NUM = 4
-
     def __init__(self, keypoint_matches: list[tuple[cv2.KeyPoint, cv2.KeyPoint]]):
         super().__init__(keypoint_matches)
-        if len(keypoint_matches) == self.KP_NUM:
-            raise ValueError(f'Homography transformations require {self.KP_NUM} matches')
-        self._transform: np.ndarray = cv2.getPerspectiveTransform(self.source_points, self.dest_points,
-                                                                  solveMethod=cv2.DECOMP_SVD)
-        self._itransform: np.ndarray = inv(self._transform)
+        if keypoint_matches:
+            self._transform: np.ndarray = cv2.getPerspectiveTransform(self.source_points, self.dest_points,
+                                                                      solveMethod=cv2.DECOMP_SVD)
+            self._itransform: np.ndarray = inv(self._transform)
+
+    @property
+    def type(self) -> PuzzleType:
+        return PuzzleType.HOMOGRAPHY
 
 
 if __name__ == '__main__':
     path = PathLoader(1, PuzzleType.AFFINE)
-    image3 = ImageLoader(path.get_image(3))
-    image4 = ImageLoader(path.get_image(4))
+    image3 = ImageLoader(path.get_image_path(3))
+    image4 = ImageLoader(path.get_image_path(4))
 
     matcher = SiftMatcher(SiftData(image3), SiftData(image4))
 
@@ -59,5 +79,4 @@ if __name__ == '__main__':
     af = AffineTransform(matches)
     t = af.transform
     it = af.itransform
-
     i = 0
