@@ -49,10 +49,16 @@ class SiftMatcher:
             yield DMatch(_distance=self.__diffmatrix[i, j], _queryIdx=i, _trainIdx=j,
                          _imgIdx=0)  # fixme, imgIdx==dest image index in comparison
 
+    def filter_by_dmatches(self, dmatches):
+        return [(self.source_data.keypoints[s.queryIdx], self.dest_data.keypoints[s.trainIdx]) for s in dmatches]
+
     def get_n_random_matches(self, n: int):
         assert n < len(self.matches), 'Number of samples must be smaller than amount of matches'
         samples: list[DMatch] = random.sample(list(self.get_matched()), n)
-        return [(self.source_data.keypoints[s.queryIdx], self.dest_data.keypoints[s.trainIdx]) for s in samples]
+        return self.filter_by_dmatches(samples)
+
+    def get_number_of_matches(self) -> int:
+        return len(self.source_data.keypoints)
 
 
 if __name__ == '__main__':
