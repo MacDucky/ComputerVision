@@ -1,15 +1,11 @@
 from typing import Self
-
+from loader import PuzzleType
+from abc import ABC, abstractmethod
 import cv2
 import numpy as np
-from abc import ABC, abstractmethod
-from numpy.linalg import inv
-
-from loader import *
-from sift import SiftMatcher, SiftData
 
 
-class Transform:
+class Transform(ABC):
     def __init__(self, keypoint_matches: list[tuple[cv2.KeyPoint, cv2.KeyPoint]]):
         self.source_kp = [t[0] for t in keypoint_matches]
         self.dest_kp = [t[1] for t in keypoint_matches]
@@ -37,8 +33,9 @@ class Transform:
     @classmethod
     def from_transform(cls, transform: np.ndarray, type_: PuzzleType) -> Self:
         instance = AffineTransform([]) if type_ == PuzzleType.AFFINE else HomographyTransform([])
-        instance._transform = transform
-        eigen_ratio, instance._itransform = cv2.invert(transform, flags=cv2.DECOMP_SVD)
+        T_3by3 = transform if transform.shape == (3, 3) else np.vstack([transform, [0, 0, 1]])
+        instance._transform = T_3by3
+        eigen_ratio, instance._itransform = cv2.invert(T_3by3, flags=cv2.DECOMP_SVD)
         return instance
 
     @abstractmethod
@@ -83,17 +80,3 @@ class HomographyTransform(Transform):
         T = np.vstack(mat_vecs)
         _, T_inv = cv2.invert(T, flags=cv2.DECOMP_SVD)
         return np.matmul(T_inv, np.zeros(9)).reshape((3, 3))
-
-
-if __name__ == '__main__':
-    path = PathLoader(1, PuzzleType.AFFINE)
-    image3 = ImageLoader(path.get_image_path(1))
-    image4 = ImageLoader(path.get_image_path(2))
-
-    matcher = SiftMatcher(SiftData(image3), SiftData(image4))
-
-    matches = matcher.get_n_random_matches(3)
-    af = AffineTransform(matches)
-    t = af.transform
-    it = af.itransform
-    i = 0
