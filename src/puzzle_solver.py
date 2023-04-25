@@ -55,7 +55,7 @@ class PuzzleSolver:
         os.makedirs(base_solution_dir, exist_ok=True)
         full_sol_filename = os.path.join(base_solution_dir, self.SOLUTION_FILENAME.format(total=total, solved=solved))
         full_cov_filename = os.path.join(base_solution_dir, self.COVERAGE_FILENAME)
-        cv2.imwrite(full_cov_filename, cv2.cvtColor(sol_image, cv2.COLOR_RGB2BGR))
+        cv2.imwrite(full_sol_filename, cv2.cvtColor(sol_image, cv2.COLOR_RGB2BGR))
         cv2.imwrite(full_cov_filename, cv2.cvtColor(cov_image, cv2.COLOR_RGB2BGR))
 
         for index, image_rel in enumerate(self.image_unifier.warper.warped_images, start=1):
