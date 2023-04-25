@@ -35,7 +35,7 @@ class ImageUnifier:
                         ratio_threshold=self.RATIO_TEST)
         if len(ransac.matcher.matches) >= self.MIN_MATCHES_NUM:
             ransac.fit_transforms(self.RADIUS_THRESHOLD)
-            if ransac.best_inliers / len(ransac.matcher.matches) > self.SUCCESS_RATE:
+            if ransac.best_inlier_rate > self.SUCCESS_RATE:
                 itransform = ransac.best_transform.itransform
                 self.transArray[idx_son - 1] = Transform.from_transform(
                     np.matmul(self.transArray[idx_parent - 1].transform, itransform), self.puzzle_type)

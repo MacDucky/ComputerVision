@@ -30,6 +30,35 @@ class Ransac:
         self.radius_threshold = None
         self.best_transform = None
         self.best_inliers = 0
+        self.best_inlier_rate = 0
+        self.stop_condition_param = stop_param
+        self.stop_criteria = stop_criteria
+        self.current_trial = 0
+
+    def is_under_n_trials(self) -> bool:
+        res = self.current_trial < self.stop_condition_param
+        self.current_trial += 1
+        return res
+
+    def dynamic_criteria(self) -> bool:
+        if self.best_inlier_rate == 0:
+            return True
+        try:
+            min_trials = log2(1 - self.stop_condition_param) / \
+                         log2(1 - self.best_inlier_rate ** (3 if self.puzzle_type == PuzzleType.AFFINE else 4))
+        except ValueError:
+            return False
+        temp = self.current_trial
+        self.current_trial += 1
+        return temp < min_trials
+
+    def get_trial_stop_condition(self):
+        if self.stop_criteria == Ransac.StopCriteria.INLIER_SAT:
+            return lambda: self.best_inliers < self.stop_condition_param
+        elif self.stop_criteria == Ransac.StopCriteria.N_TRIALS:
+            return self.is_under_n_trials
+        else:  # DYNAMIC
+            return self.dynamic_criteria
 
     def fit_transforms(self, radius_threshold: float = 1.0):
         self.radius_threshold = radius_threshold
@@ -72,6 +101,7 @@ class Ransac:
             if under_threshold > self.best_inliers:
                 self.best_transform = t
                 self.best_inliers = under_threshold
+                self.best_inlier_rate = self.best_inliers / len(self.matcher.matches)
 
     def __refit_by_adjacent_points(self, inlier_indices):
         matched_src_kp_under_threshold: list[cv2.KeyPoint] = []
