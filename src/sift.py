@@ -50,7 +50,7 @@ class SiftMatcher:
         return [(self.source_data.keypoints[s.queryIdx], self.dest_data.keypoints[s.trainIdx]) for s in dmatches]
 
     def get_n_random_matches(self, n: int):
-        assert n < len(self.matches), 'Number of samples must be smaller than amount of matches'
+        assert n <= len(self.matches), 'Number of samples must be smaller than amount of matches'
         samples: list[DMatch] = random.sample(list(self.get_matched()), n)
         return self.filter_by_dmatches(samples)
 

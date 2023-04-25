@@ -30,6 +30,8 @@ def show_coverage_image(images, *hide_images, show_image_idx=True, no_gui=False)
         if show_image_idx:
             gray_img = cv2.cvtColor(threshold_image, cv2.COLOR_BGR2GRAY) if len(
                 threshold_image.shape) > 2 else threshold_image
+            if gray_img.max() == 0:
+                continue
             M = cv2.moments(gray_img)
             img_centroids.append((int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])))
             img_indices.append(index)

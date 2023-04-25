@@ -20,6 +20,15 @@ class PuzzleSolver:
         self.puzzle_type: PuzzleType = puzzle_type
         self.image_unifier = ImageUnifier(puzzle_num, puzzle_type)
         self.paths = self.image_unifier.paths
+        self.base_solution_dir = os.path.join(self.paths.puzzle_base_dir, 'solution')
+
+    def negate_indices_to_keep(self, keep_indices_: list[int]) -> list[int]:
+        keep_indices = set(keep_indices_)
+        all_indices = []
+        for file in os.listdir(self.base_solution_dir):
+            if file.startswith('piece'):
+                all_indices.append(int(file.split('_')[1]))
+        return sorted(list(set(all_indices).difference(keep_indices)))
 
     def __set_unifier_special_params(self, **unifier_params):
         sp = self.image_unifier.special_parameters()
@@ -51,24 +60,42 @@ class PuzzleSolver:
             if answer in negative:
                 return
 
-        base_solution_dir = os.path.join(self.paths.puzzle_base_dir, 'solution')
-        os.makedirs(base_solution_dir, exist_ok=True)
-        full_sol_filename = os.path.join(base_solution_dir, self.SOLUTION_FILENAME.format(total=total, solved=solved))
-        full_cov_filename = os.path.join(base_solution_dir, self.COVERAGE_FILENAME)
+        # base_solution_dir = os.path.join(self.paths.puzzle_base_dir, 'solution')
+        os.makedirs(self.base_solution_dir, exist_ok=True)
+        full_sol_filename = os.path.join(self.base_solution_dir,
+                                         self.SOLUTION_FILENAME.format(total=total, solved=solved))
+        full_cov_filename = os.path.join(self.base_solution_dir, self.COVERAGE_FILENAME)
         cv2.imwrite(full_sol_filename, cv2.cvtColor(sol_image, cv2.COLOR_RGB2BGR))
         cv2.imwrite(full_cov_filename, cv2.cvtColor(cov_image, cv2.COLOR_RGB2BGR))
 
         for index, image_rel in enumerate(self.image_unifier.warper.warped_images, start=1):
-            rel_piece_filename = os.path.join(base_solution_dir, self.PARTIAL_SOL_FILENAME.format(i=index))
+            try:
+                if not image_rel:
+                    continue
+            except:
+                pass
+            rel_piece_filename = os.path.join(self.base_solution_dir, self.PARTIAL_SOL_FILENAME.format(i=index))
             cv2.imwrite(rel_piece_filename, cv2.cvtColor(image_rel, cv2.COLOR_RGB2BGR))
-        with open(os.path.join(base_solution_dir, 'params.json'), 'w') as fp:
+        with open(os.path.join(self.base_solution_dir, 'params.json'), 'w') as fp:
             json.dump(special_param_dct, fp)
         print('Saved')
 
 
 if __name__ == '__main__':
-    solver = PuzzleSolver(4, PuzzleType.AFFINE)
-    unifier_args = {'MIN_MATCHES_NUM': 4, 'SUCCESS_RATE': 0.4, 'RADIUS_THRESHOLD': 2, 'RATIO_TEST': 0.55,
-                    'RANSAC_STOP_PARAM': 0.999, 'RANSAC_STOP_CRITERIA': Ransac.StopCriteria.DYNAMIC}
-    hide_images: list[int] = []
+    # for i in range(6, 11):
+    #     solver = PuzzleSolver(i, PuzzleType.HOMOGRAPHY)
+    #     unifier_args = {'MIN_MATCHES_NUM': 4, 'SUCCESS_RATE': 0.265, 'RADIUS_THRESHOLD': 5, 'RATIO_TEST': 0.7,
+    #                     #  'RANSAC_STOP_PARAM': 200, 'RANSAC_STOP_CRITERIA': Ransac.StopCriteria.N_TRIALS}
+    #                     'RANSAC_STOP_PARAM': 0.999, 'RANSAC_STOP_CRITERIA': Ransac.StopCriteria.DYNAMIC}
+    #     hide_images: list[int] = []  # 8A - [14, 17, 21, 24]
+    #     solver.create_solution(*hide_images, show_image_idx=True, interactive=False, **unifier_args)
+    solver = PuzzleSolver(10, PuzzleType.HOMOGRAPHY)
+    unifier_args = {'MIN_MATCHES_NUM': 4, 'SUCCESS_RATE': 0.1, 'RADIUS_THRESHOLD': 10, 'RATIO_TEST': 0.45,
+                     'RANSAC_STOP_PARAM': 20, 'RANSAC_STOP_CRITERIA': Ransac.StopCriteria.N_TRIALS}
+                    # 'RANSAC_STOP_PARAM': 0.8, 'RANSAC_STOP_CRITERIA': Ransac.StopCriteria.DYNAMIC}
+
+    keep_images: list[int] = [1]
+    hide_images = solver.negate_indices_to_keep(keep_images)
+    # hide_images = []
+    # 9A[2, 3, 8, 9, 10, 13, 19, 20, 22, 29, 30, 31, 34, 35, 38, 39, 14, 18, 19, 52,56,49]  # 8A - [14, 17, 21, 24]
     solver.create_solution(*hide_images, show_image_idx=True, interactive=True, **unifier_args)

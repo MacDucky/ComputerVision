@@ -50,4 +50,4 @@ class Warper:  # todo: once we have sift, create transformation hierarchy(tree f
             return np.zeros(shape=(self.transform_loader.height, self.transform_loader.width))
         return reduce(np.maximum,
                       [np.array(image) for i, image in enumerate(self.warped_images, start=1) if
-                       i not in solved_to_unselect])
+                       i not in solved_to_unselect and image is not None])
