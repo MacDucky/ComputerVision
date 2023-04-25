@@ -1,4 +1,6 @@
+from copy import deepcopy
 import numpy as np
+
 from loader import ImageLoader, TransformLoader, PuzzleType, PathLoader
 from src.plotter import show_image, show_coverage_image, compare_images
 from warper import Warper
@@ -25,9 +27,9 @@ class ImageUnifier:
         self.puzzle_type = puzzle_type
 
         # Creating the warper and the transform array
-        self.warper = Warper(init_image, base_transform)
-        self.transArray: list[Transform | None] = [None] * len(self.images)
-        self.transArray[0] = Transform.from_transform(base_transform.transform, self.puzzle_type)
+        self.warper = Warper(init_image, base_transform, pieces_amount=len(self.images))
+        self.transform_array: list[Transform | None] = [None] * len(self.images)
+        self.transform_array[0] = Transform.from_transform(base_transform.transform, self.puzzle_type)
 
     def add_node(self, idx_parent: int, idx_son: int) -> bool:
         ransac = Ransac(self.sift_datas[idx_parent - 1], self.sift_datas[idx_son - 1], self.puzzle_type,
@@ -37,24 +39,24 @@ class ImageUnifier:
             ransac.fit_transforms(self.RADIUS_THRESHOLD)
             if ransac.best_inlier_rate > self.SUCCESS_RATE:
                 itransform = ransac.best_transform.itransform
-                self.transArray[idx_son - 1] = Transform.from_transform(
-                    np.matmul(self.transArray[idx_parent - 1].transform, itransform), self.puzzle_type)
+                self.transform_array[idx_son - 1] = Transform.from_transform(
+                    np.matmul(self.transform_array[idx_parent - 1].transform, itransform), self.puzzle_type)
                 # self.warper.warp(self.images[idx_son - 1].grayscale_image, self.transArray[idx_son - 1])
                 return True
         return False
 
     def warp_images(self, grayscale=True):
         self.warper.warp_first(grayscale)  # at least 1 image is warped by this point.
-        if len(self.warper.warped_images) > 1:  # if more than 1 image is warped, this means it was warped previously.
+
+        # if more than 1 image is warped, this means it was warped previously.
+        if len([im for im in self.warper.warped_images if im is not None]) > 1:
             return
-        if grayscale:
-            for image, transform in zip(self.images[1:], self.transArray[1:]):
-                if transform:
-                    self.warper.warp(image.grayscale_img, transform)
-        else:
-            for image, transform in zip(self.images[1:], self.transArray[1:]):
-                if transform:
-                    self.warper.warp(image.color_img, transform)
+
+        for index, image, transform in zip(range(1, len(self.images[1:]) + 1),
+                                           self.images[1:],
+                                           self.transform_array[1:]):
+            if transform:
+                self.warper.warp(image.grayscale_img if grayscale else image.color_img, transform, index)
 
     def build_data(self) -> int:
         """"Build the array and the warper, and return number of unsuitable pieces"""
@@ -72,16 +74,20 @@ class ImageUnifier:
             last_visited_idx_pieces = visited_idx_pieces
         return num_pieces - len(left_idx_pieces)
 
-    def merged_image(self, grayscale: bool = True):
-        if not self.warper.warped_images or self.warper.is_grayscale != grayscale:
+    def merged_image(self, grayscale: bool = True, *unselect_images) -> np.ndarray:
+        if all(x is None for x in self.warper.warped_images) or self.warper.is_grayscale != grayscale:
             self.warp_images(grayscale)
-        return self.warper.merged_image
+        return self.warper.merged_image(self.transform_array, *unselect_images)
 
 
 if __name__ == '__main__':
-    unifier = ImageUnifier(8, PuzzleType.AFFINE)
+    unifier = ImageUnifier(5, PuzzleType.AFFINE)
     unifier.build_data()
-    unifier.warp_images(True)
-    # show_image(unifier.merged_image(False))
-    cov_im = show_coverage_image(unifier.warper.warped_images)
-    merged_img = show_image(unifier.merged_image(False))
+    unifier.warp_images()
+    hide_images = []
+    show_coverage_image(deepcopy(unifier.warper.warped_images), True, *hide_images)
+    merged_image = unifier.merged_image(False, *hide_images)
+    show_image(merged_image)
+
+    merged_image = unifier.merged_image(False)
+    show_image(merged_image)
