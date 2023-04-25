@@ -55,7 +55,7 @@ class PuzzleSolver:
         os.makedirs(base_solution_dir, exist_ok=True)
         full_sol_filename = os.path.join(base_solution_dir, self.SOLUTION_FILENAME.format(total=total, solved=solved))
         full_cov_filename = os.path.join(base_solution_dir, self.COVERAGE_FILENAME)
-        cv2.imwrite(full_sol_filename, sol_image)
+        cv2.imwrite(full_cov_filename, cv2.cvtColor(sol_image, cv2.COLOR_RGB2BGR))
         cv2.imwrite(full_cov_filename, cv2.cvtColor(cov_image, cv2.COLOR_RGB2BGR))
 
         for index, image_rel in enumerate(self.image_unifier.warper.warped_images, start=1):
@@ -67,8 +67,8 @@ class PuzzleSolver:
 
 
 if __name__ == '__main__':
-    solver = PuzzleSolver(1, PuzzleType.AFFINE)
-    unifier_args = {'MIN_MATCHES_NUM': 4, 'SUCCESS_RATE': 0.4, 'RADIUS_THRESHOLD': 1, 'RATIO_TEST': 0.6,
+    solver = PuzzleSolver(2, PuzzleType.AFFINE)
+    unifier_args = {'MIN_MATCHES_NUM': 4, 'SUCCESS_RATE': 0.4, 'RADIUS_THRESHOLD': 0.4, 'RATIO_TEST': 0.6,
                     'RANSAC_STOP_PARAM': 0.999, 'RANSAC_STOP_CRITERIA': Ransac.StopCriteria.DYNAMIC}
     hide_images: list[int] = []
     solver.create_solution(*hide_images, show_image_idx=True, interactive=True, **unifier_args)
