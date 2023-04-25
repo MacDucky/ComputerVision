@@ -81,6 +81,7 @@ class PathLoader:
     def __init__(self, puzzle_num, puzzle_type: PuzzleType):
         self.images_path = os.path.join(os.path.abspath(self.BASE_PUZZLE_PATH),
                                         f'puzzle_{puzzle_type.value}_{puzzle_num}', 'pieces')
+        self.puzzle_base_dir = os.path.dirname(self.images_path)
         transform_path = os.path.join(os.path.dirname(self.images_path))
         warp_file_full_name = list(filter(lambda x: x.startswith('warp'), os.listdir(transform_path)))[0]
         self.transform_path = os.path.join(transform_path, warp_file_full_name)

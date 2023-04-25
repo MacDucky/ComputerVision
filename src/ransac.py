@@ -9,7 +9,7 @@ from sift import SiftData, SiftMatcher
 
 
 class Ransac:
-    class StopCriteria(Enum):
+    class StopCriteria(str,Enum):
         # Satisfy amount of stop_param = [n] inliers
         INLIER_SAT = 'inliers'
 
@@ -137,57 +137,3 @@ class Ransac:
             if distance < self.radius_threshold:
                 under_threshold += 1
         return under_threshold, t
-
-
-if __name__ == '__main__':
-    pass
-    # radius_thresh = 0.4
-    #
-    # functions = []
-    # for i in range(30):
-    #     ransac = Ransac(1, PuzzleType.AFFINE)
-    #     avg_sr = []
-    #     num_trials_gen = partial(range, 10, 121, 10)
-    #     for n_trials in num_trials_gen():
-    #         ransac.fit_transforms(ratio_threshold=0.75, radius_threshold=radius_thresh, n_trials=n_trials)
-    #         avg_sr.append(ransac.inlier_rate)
-    #     functions.append(avg_sr)
-    # # Compute the sum of each corresponding entry in the 30 arrays
-    # sum_of_entries = [sum(x) for x in zip(*functions)]
-    #
-    # # Compute the average per array entry
-    # average_per_entry = [x / len(functions) for x in sum_of_entries]
-    # import matplotlib.pyplot as plt
-    #
-    # fig, (ax1, ax2) = plt.subplots(2, 1)
-    # fig.suptitle('A tale of 2 subplots')
-    #
-    # ax1.plot(num_trials_gen(), average_per_entry, 'o-')
-    # ax1.set_xlabel('number of trials')
-    # ax1.set_ylabel('average inlier rate')
-    #
-    # ax2.plot(num_trials_gen(), average_per_entry, '.-')
-    # ax2.set_xlabel('time (s)')
-    # ax2.set_ylabel('Undamped')
-    #
-    # plt.show()
-
-# n_close, t = ransac.best_transforms.get((1, 2))
-# print(
-#     f'RANSAC rt: {radius_thresh}, RANSAC_MAX_MATCHES: {n_close}, RANSAC AVG INLIER RATE: {ransac.avg_inlier_rate}')
-# t.transform.dump('best_t.txt')
-
-# paths = PathLoader(1, PuzzleType.AFFINE)
-# images: list[ImageLoader] = [ImageLoader(p) for p in paths.all_images]
-# base_transform_loader = TransformLoader(paths.transform_path)
-# base_transform = Transform.from_transform(base_transform_loader.transform, base_transform_loader.type)
-# pkled_t = np.load('best_t.txt', allow_pickle=True)
-# picture1_to2 = Transform.from_transform(pkled_t, PuzzleType.AFFINE)
-# warper = Warper(images[0], transform=base_transform_loader)
-#
-# pkled_mul = np.matmul(base_transform_loader.transform, picture1_to2.itransform)
-# compare_images(images[0].color_image, images[1].color_image, False)
-# im1 = warper.warp_first(False)
-# im2 = warper.warp(images[-1].color_image, Transform.from_transform(pkled_mul, PuzzleType.AFFINE))
-# compare_images(im1, im2)
-# show_image(warper.merged_image)

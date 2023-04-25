@@ -58,12 +58,15 @@ class ImageUnifier:
             if transform:
                 self.warper.warp(image.grayscale_img if grayscale else image.color_img, transform, index)
 
-    def build_data(self) -> int:
+    def build_data(self) -> list[int]:
         """"Build the array and the warper, and return number of unsuitable pieces"""
         num_pieces = len(self.images)
         left_idx_pieces = list(range(2, num_pieces + 1))
         last_visited_idx_pieces = [1]
         # Continue if we didn't go over all the pieces, and we visit any new piece in the loop
+        # break out of the while loop if:
+        # 1. a transformation was not found for any of the images that already have a transformation
+        # 2. we found all transformations
         while len(left_idx_pieces) > 0 and len(last_visited_idx_pieces) > 0:
             visited_idx_pieces = []
             for i in last_visited_idx_pieces:
@@ -72,12 +75,17 @@ class ImageUnifier:
                         visited_idx_pieces.append(j)
                         left_idx_pieces.remove(j)
             last_visited_idx_pieces = visited_idx_pieces
-        return num_pieces - len(left_idx_pieces)
+        return left_idx_pieces  # pieces without a transformation
 
     def merged_image(self, grayscale: bool = True, *unselect_images) -> np.ndarray:
         if all(x is None for x in self.warper.warped_images) or self.warper.is_grayscale != grayscale:
             self.warp_images(grayscale)
         return self.warper.merged_image(self.transform_array, *unselect_images)
+
+    @classmethod
+    def special_parameters(cls):
+        return [attr for attr in dir(cls) if
+                not callable(getattr(cls, attr)) and not attr.startswith("__") and attr.isupper()]
 
 
 if __name__ == '__main__':
@@ -85,7 +93,7 @@ if __name__ == '__main__':
     unifier.build_data()
     unifier.warp_images()
     hide_images = []
-    show_coverage_image(deepcopy(unifier.warper.warped_images), True, *hide_images)
+    show_coverage_image(deepcopy(unifier.warper.warped_images), *hide_images, show_image_idx=True)
     merged_image = unifier.merged_image(False, *hide_images)
     show_image(merged_image)
 
