@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 
 # Interactive plot mode
 import matplotlib
+
 matplotlib.use('TkAgg')
 
 
@@ -14,6 +15,18 @@ def show_image(image: np.ndarray, grayscale=True):
     else:
         plt.imshow(image)
     plt.show()
+    return image
+
+
+def show_coverage_image(images):
+    coverage_image = np.zeros_like(images[0])
+    for image in images:
+        _, t_image = cv2.threshold(image, 1, 1, cv2.THRESH_BINARY)
+        coverage_image += t_image
+    plt.figure()
+    coverage_image = plt.imshow(coverage_image, cmap='hot')
+    plt.show()
+    return coverage_image
 
 
 def compare_images(image1, image2, grayscale=True):

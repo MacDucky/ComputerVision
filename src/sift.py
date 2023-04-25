@@ -1,7 +1,4 @@
 import random
-
-import numpy as np
-import cv2
 from cv2 import DMatch
 from scipy.spatial.distance import cdist
 
@@ -58,4 +55,4 @@ class SiftMatcher:
         return self.filter_by_dmatches(samples)
 
     def get_number_of_matches(self) -> int:
-        return len(self.source_data.keypoints)
+        return len(self.matches)

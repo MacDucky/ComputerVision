@@ -1,5 +1,7 @@
+from enum import Enum
 import cv2
 import numpy as np
+from math import log2, ceil
 
 from loader import PuzzleType
 from transform import AffineTransform, HomographyTransform
@@ -7,22 +9,32 @@ from sift import SiftData, SiftMatcher
 
 
 class Ransac:
+    class StopCriteria(Enum):
+        # Satisfy amount of stop_param = [n] inliers
+        INLIER_SAT = 'inliers'
+
+        # After stop_param = [n] trials
+        N_TRIALS = 'n_trials'
+
+        # after log(1-P)/log(1-p**k) where stop_param = [P := Overall Success rate] and p := inlier rate
+        DYNAMIC = 'dynamic'
 
     def __init__(self, sift_data_parent: SiftData, sift_data_son: SiftData, puzzle_type: PuzzleType,
+                 stop_param: int | float, stop_criteria: StopCriteria,
                  ratio_threshold=0.8):
         """ Finds optimal warps for given puzzle """
         self.sift_data_parent = sift_data_parent
         self.sift_data_son = sift_data_son
         self.puzzle_type = puzzle_type
         self.matcher = SiftMatcher(sift_data_parent, sift_data_son, ratio_threshold=ratio_threshold)
-        self.n_trials = 200
         self.radius_threshold = None
         self.best_transform = None
         self.best_inliers = 0
 
     def fit_transforms(self, radius_threshold: float = 1.0):
         self.radius_threshold = radius_threshold
-        for trial in range(self.n_trials):
+        run_condition = self.get_trial_stop_condition()
+        while run_condition():
             # check which puzzle type it is and building the transform
             if self.puzzle_type == PuzzleType.AFFINE:
                 r_matches = self.matcher.get_n_random_matches(3)
@@ -58,13 +70,10 @@ class Ransac:
                 under_threshold = under_threshold_refit
                 t = t_refit
             if under_threshold > self.best_inliers:
-                # self.best_transforms[(i, j)] = under_threshold, t
                 self.best_transform = t
                 self.best_inliers = under_threshold
 
     def __refit_by_adjacent_points(self, inlier_indices):
-        # if not inlier_indices:
-        #     inlier_indices = range(matcher.get_number_of_matches())
         matched_src_kp_under_threshold: list[cv2.KeyPoint] = []
         matched_dest_kp_under_threshold: list[cv2.KeyPoint] = []
         for match in self.matcher.get_matched():
@@ -102,24 +111,53 @@ class Ransac:
 
 if __name__ == '__main__':
     pass
-    # ransac = Ransac(1, PuzzleType.AFFINE)
-    # radius_thresh = 0.1
-    # ransac.fit_transforms(ratio_threshold=0.8, radius_threshold=radius_thresh)
-    # n_close, t = ransac.best_transforms.get((1, 2))
-    # print(f'RANSAC rt: {radius_thresh}, RANSAC_SUCCESSES: {n_close}')
-    # t.transform.dump('best_t.txt')
-
-    # paths = PathLoader(1, PuzzleType.AFFINE)
-    # images: list[ImageLoader] = [ImageLoader(p) for p in paths.all_images]
-    # base_transform_loader = TransformLoader(paths.transform_path)
-    # base_transform = Transform.from_transform(base_transform_loader.transform, base_transform_loader.type)
-    # pkled_t = np.load('best_t.txt', allow_pickle=True)
-    # picture1_to2 = Transform.from_transform(pkled_t, PuzzleType.AFFINE)
-    # warper = Warper(images[0], transform=base_transform_loader)
+    # radius_thresh = 0.4
     #
-    # pkled_mul = np.matmul(base_transform_loader.transform, picture1_to2.itransform)
-    # compare_images(images[0].color_image, images[1].color_image, False)
-    # im1 = warper.warp_first(False)
-    # im2 = warper.warp(images[-1].color_image, Transform.from_transform(pkled_mul, PuzzleType.AFFINE))
-    # compare_images(im1, im2)
-    # show_image(warper.merged_image)
+    # functions = []
+    # for i in range(30):
+    #     ransac = Ransac(1, PuzzleType.AFFINE)
+    #     avg_sr = []
+    #     num_trials_gen = partial(range, 10, 121, 10)
+    #     for n_trials in num_trials_gen():
+    #         ransac.fit_transforms(ratio_threshold=0.75, radius_threshold=radius_thresh, n_trials=n_trials)
+    #         avg_sr.append(ransac.inlier_rate)
+    #     functions.append(avg_sr)
+    # # Compute the sum of each corresponding entry in the 30 arrays
+    # sum_of_entries = [sum(x) for x in zip(*functions)]
+    #
+    # # Compute the average per array entry
+    # average_per_entry = [x / len(functions) for x in sum_of_entries]
+    # import matplotlib.pyplot as plt
+    #
+    # fig, (ax1, ax2) = plt.subplots(2, 1)
+    # fig.suptitle('A tale of 2 subplots')
+    #
+    # ax1.plot(num_trials_gen(), average_per_entry, 'o-')
+    # ax1.set_xlabel('number of trials')
+    # ax1.set_ylabel('average inlier rate')
+    #
+    # ax2.plot(num_trials_gen(), average_per_entry, '.-')
+    # ax2.set_xlabel('time (s)')
+    # ax2.set_ylabel('Undamped')
+    #
+    # plt.show()
+
+# n_close, t = ransac.best_transforms.get((1, 2))
+# print(
+#     f'RANSAC rt: {radius_thresh}, RANSAC_MAX_MATCHES: {n_close}, RANSAC AVG INLIER RATE: {ransac.avg_inlier_rate}')
+# t.transform.dump('best_t.txt')
+
+# paths = PathLoader(1, PuzzleType.AFFINE)
+# images: list[ImageLoader] = [ImageLoader(p) for p in paths.all_images]
+# base_transform_loader = TransformLoader(paths.transform_path)
+# base_transform = Transform.from_transform(base_transform_loader.transform, base_transform_loader.type)
+# pkled_t = np.load('best_t.txt', allow_pickle=True)
+# picture1_to2 = Transform.from_transform(pkled_t, PuzzleType.AFFINE)
+# warper = Warper(images[0], transform=base_transform_loader)
+#
+# pkled_mul = np.matmul(base_transform_loader.transform, picture1_to2.itransform)
+# compare_images(images[0].color_image, images[1].color_image, False)
+# im1 = warper.warp_first(False)
+# im2 = warper.warp(images[-1].color_image, Transform.from_transform(pkled_mul, PuzzleType.AFFINE))
+# compare_images(im1, im2)
+# show_image(warper.merged_image)

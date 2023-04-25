@@ -1,6 +1,6 @@
 import numpy as np
 from loader import ImageLoader, TransformLoader, PuzzleType, PathLoader
-from src.plotter import show_image
+from src.plotter import show_image, show_coverage_image, compare_images
 from warper import Warper
 from ransac import Ransac
 from sift import SiftData
@@ -9,9 +9,11 @@ from transform import Transform
 
 class ImageUnifier:
     MIN_MATCHES_NUM = 4
-    SUCCESS_RATE = 0.9
-    RADIUS_THRESHOLD = 4
-    RATIO_TEST = 0.55
+    SUCCESS_RATE = 0.4  # inliers / matches
+    RADIUS_THRESHOLD = 1
+    RATIO_TEST = 0.6
+    RANSAC_STOP_PARAM = 0.999  # see Ransac.StopCriteria for info
+    RANSAC_STOP_CRITERIA = Ransac.StopCriteria.DYNAMIC
 
     def __init__(self, puzzle_index: int, puzzle_type: PuzzleType):
         # collecting the images and the initial transform
@@ -29,6 +31,7 @@ class ImageUnifier:
 
     def add_node(self, idx_parent: int, idx_son: int) -> bool:
         ransac = Ransac(self.sift_datas[idx_parent - 1], self.sift_datas[idx_son - 1], self.puzzle_type,
+                        stop_param=self.RANSAC_STOP_PARAM, stop_criteria=self.RANSAC_STOP_CRITERIA,
                         ratio_threshold=self.RATIO_TEST)
         if len(ransac.matcher.matches) >= self.MIN_MATCHES_NUM:
             ransac.fit_transforms(self.RADIUS_THRESHOLD)
@@ -45,11 +48,11 @@ class ImageUnifier:
         if len(self.warper.warped_images) > 1:  # if more than 1 image is warped, this means it was warped previously.
             return
         if grayscale:
-            for image, transform in zip(self.images, self.transArray):
+            for image, transform in zip(self.images[1:], self.transArray[1:]):
                 if transform:
                     self.warper.warp(image.grayscale_img, transform)
         else:
-            for image, transform in zip(self.images, self.transArray):
+            for image, transform in zip(self.images[1:], self.transArray[1:]):
                 if transform:
                     self.warper.warp(image.color_img, transform)
 
@@ -76,9 +79,9 @@ class ImageUnifier:
 
 
 if __name__ == '__main__':
-    unifier = ImageUnifier(2, PuzzleType.HOMOGRAPHY)
+    unifier = ImageUnifier(8, PuzzleType.AFFINE)
     unifier.build_data()
-    unifier.warp_images(False)
-    show_image(unifier.merged_image(False))
-    show_image(unifier.merged_image(False))
-    show_image(unifier.merged_image())
+    unifier.warp_images(True)
+    # show_image(unifier.merged_image(False))
+    cov_im = show_coverage_image(unifier.warper.warped_images)
+    merged_img = show_image(unifier.merged_image(False))

@@ -44,6 +44,6 @@ class Warper:  # todo: once we have sift, create transformation hierarchy(tree f
     def merged_image(self) -> np.ndarray:
         return reduce(np.maximum, [np.array(image) for image in self.warped_images])
 
-    @property
-    def coverage_image(self) -> np.ndarray[np.int8]:
-        return reduce(np.count_nonzero)
+    # @property
+    # def coverage_image(self) -> np.ndarray[np.int8]:
+    #     return reduce(np.count_nonzero)
