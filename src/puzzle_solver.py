@@ -60,15 +60,15 @@ class PuzzleSolver:
 
         for index, image_rel in enumerate(self.image_unifier.warper.warped_images, start=1):
             rel_piece_filename = os.path.join(base_solution_dir, self.PARTIAL_SOL_FILENAME.format(i=index))
-            cv2.imwrite(rel_piece_filename, image_rel)
+            cv2.imwrite(rel_piece_filename, cv2.cvtColor(image_rel, cv2.COLOR_RGB2BGR))
         with open(os.path.join(base_solution_dir, 'params.json'), 'w') as fp:
             json.dump(special_param_dct, fp)
         print('Saved')
 
 
 if __name__ == '__main__':
-    solver = PuzzleSolver(2, PuzzleType.AFFINE)
-    unifier_args = {'MIN_MATCHES_NUM': 4, 'SUCCESS_RATE': 0.4, 'RADIUS_THRESHOLD': 0.4, 'RATIO_TEST': 0.6,
+    solver = PuzzleSolver(4, PuzzleType.AFFINE)
+    unifier_args = {'MIN_MATCHES_NUM': 4, 'SUCCESS_RATE': 0.4, 'RADIUS_THRESHOLD': 2, 'RATIO_TEST': 0.55,
                     'RANSAC_STOP_PARAM': 0.999, 'RANSAC_STOP_CRITERIA': Ransac.StopCriteria.DYNAMIC}
     hide_images: list[int] = []
     solver.create_solution(*hide_images, show_image_idx=True, interactive=True, **unifier_args)
