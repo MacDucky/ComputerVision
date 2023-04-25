@@ -15,7 +15,7 @@ class SiftData:
     def __init__(self, image: ImageLoader):
         sift = cv2.SIFT_create()
         self.image: ImageLoader = image
-        self.keypoints, self.descriptors = sift.detectAndCompute(image.grayscale_image, None)
+        self.keypoints, self.descriptors = sift.detectAndCompute(image.grayscale_img, None)
 
     def __getitem__(self, index: int):
         return self.keypoints[index], self.descriptors[index]

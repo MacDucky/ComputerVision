@@ -25,21 +25,23 @@ class ImageLoader(Loader):
 
     def __init__(self, path: str):
         super().__init__(path)
-        self.color_image: ndarray = None
-        self.grayscale_image: ndarray = None
+        self._color_image: ndarray = None
+        self._grayscale_image: ndarray = None
         self.load()
 
     def load(self):
         # with open(self.path, 'rb') as fp:
-        self.color_image = cv2.imread(self.path)
-        self.grayscale_image = cv2.cvtColor(self.color_image, cv2.COLOR_BGR2GRAY)
+        self._color_image = cv2.imread(self.path, cv2.IMREAD_UNCHANGED)
+        self._color_image = cv2.cvtColor(self._color_image, cv2.COLOR_RGB2BGR)
+        self._grayscale_image = cv2.cvtColor(self.color_img, cv2.COLOR_BGR2GRAY)
 
     @property
     def color_img(self) -> np.ndarray:
-        return self.color_image.copy()
+        return self._color_image.copy()
 
+    @property
     def grayscale_img(self) -> np.ndarray:
-        return self.grayscale_image.copy()
+        return self._grayscale_image.copy()
 
     @property
     def image_index(self) -> int:

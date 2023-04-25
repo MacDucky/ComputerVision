@@ -78,5 +78,9 @@ class HomographyTransform(Transform):
             mat_vecs.append(np.array([*(-s), -1, 0, 0, 0, s[0] * d[0], s[1] * d[0], d[0]]))
             mat_vecs.append(np.array([0, 0, 0, *(-s), -1, s[0] * d[1], s[0] * d[0], d[1]]))
         T = np.vstack(mat_vecs)
-        _, T_inv = cv2.invert(T, flags=cv2.DECOMP_SVD)
-        return np.matmul(T_inv, np.zeros(9)).reshape((3, 3))
+        _, _, Vt = np.linalg.svd(T)
+        V = Vt.T
+        H = V[:, -1]
+        H = H.reshape((3, 3))
+        H = H / H[2, 2]
+        return H

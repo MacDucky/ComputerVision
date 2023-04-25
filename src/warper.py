@@ -15,10 +15,16 @@ class Warper:  # todo: once we have sift, create transformation hierarchy(tree f
         self.image_loader = image
         self.transform_loader = transform
         self.warped_images = []
+        self.is_grayscale: bool = True
 
     def warp_first(self, grayscale=True) -> np.ndarray:
         """ Warps base image, with the provided transformation. """
-        image = self.image_loader.grayscale_image if grayscale else self.image_loader.color_image
+        if self.is_grayscale != grayscale:  # if mode is different, clear warped to recompute
+            self.warped_images.clear()
+            self.is_grayscale = grayscale
+        if self.warped_images:
+            return self.warped_images[0]
+        image = self.image_loader.grayscale_img if self.is_grayscale else self.image_loader.color_img
         transform = self.transform_loader.transform
         return self.warp(image, Transform.from_transform(transform=transform, type_=self.transform_loader.type))
 
