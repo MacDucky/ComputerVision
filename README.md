@@ -37,7 +37,7 @@ Figure out a way to transform and stitch together all the puzzle pieces seamless
 
 Input example:
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<img height="200" src="puzzles/puzzle_affine_1/pieces/piece_1.jpg" title="Image1" width="200"/> <img height="200" src="puzzles/puzzle_affine_1/pieces/piece_2.jpg" title="Image 2" width="200"/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<img height="200" src="assignment_1/puzzles/puzzle_affine_1/pieces/piece_1.jpg" title="Image1" width="200"/> <img height="200" src="assignment_1/puzzles/puzzle_affine_1/pieces/piece_2.jpg" title="Image 2" width="200"/>
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Affine Transformation for the first piece:
 
