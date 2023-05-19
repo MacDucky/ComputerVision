@@ -4,3 +4,4 @@ opencv-python
 scikit-image
 Pillow
 matplotlib
+numpy
