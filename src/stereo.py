@@ -18,7 +18,10 @@ class Stereo:
         self.depth_left: None | ndarray = None
         self.depth_right: None | ndarray = None
         # Back Projection Matrix from camera 1 (all the pixels represented in camera axis 1)
-        self.back_projection: None | ndarray = None
+        self.__back_projection: None | ndarray = None
+
+        self.depth_left = self.depth_right = np.loadtxt(
+            r'C:\Users\Dany\PycharmProjects\ComputerVision\assignment_2\example\depth_left.txt', delimiter=',')
 
     def calc_depth_maps(self):
         """
@@ -51,4 +54,12 @@ class Stereo:
 
         # Scale each point on the line from camera center and the pixel coordinate on the image plane(as camera coords),
         # to its original z-value
-        self.back_projection = i_intrinsics @ pixel_coordinates * self.depth_left.flatten()
+        self.__back_projection = i_intrinsics @ pixel_coordinates * self.depth_left.flatten()
+
+    @property
+    def back_projection(self):
+        if self.depth_left is None:
+            self.calc_depth_maps()
+        if self.__back_projection is None:
+            self.calc_back_projection()
+        return self.__back_projection.copy()

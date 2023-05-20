@@ -120,3 +120,12 @@ class Camera:
         s += '\n-----------full transform-----------\n'
         s += str(self.full_transform)
         return s
+
+    def __eq__(self, other):
+        return \
+                self.focal_len == other.focal_len and \
+                np.array_equal(self.roh, other.roh) and \
+                self.skew_theta == other.skew_theta and \
+                np.array_equal(self.t, other.t) and \
+                np.array_equal(self.o, other.o) and \
+                np.array_equal(self.phi, other.phi)
