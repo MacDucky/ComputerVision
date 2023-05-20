@@ -1,8 +1,6 @@
 import numpy as np
 from numpy import ndarray
-from math import cos, sin, tan
-
-from itertools import groupby
+from math import cos, sin, tan, pi
 
 
 class Camera:
@@ -57,6 +55,10 @@ class Camera:
         if self._full_t is None:
             self._full_t = self.__calc_world_to_pixel()
         return self._full_t.copy()
+
+    @property
+    def origin(self):
+        return self.o.copy()
 
     @classmethod
     def basic_camera_at_position(cls, position: ndarray, phi: ndarray = None):
@@ -118,11 +120,3 @@ class Camera:
         s += '\n-----------full transform-----------\n'
         s += str(self.full_transform)
         return s
-
-
-if __name__ == '__main__':
-    from math import pi
-
-    for x in range(5):
-        print(f'CAMERA {x + 1}:')
-        print(Camera.basic_camera_at_position(position=np.array([x, 0, 0])))
