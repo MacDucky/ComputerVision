@@ -1,6 +1,7 @@
 import numpy as np
 from numpy import ndarray
 from math import cos, sin, tan, pi
+from copy import deepcopy
 
 
 class Camera:
@@ -27,7 +28,8 @@ class Camera:
     *P[x,y,w] = K \* [I|0] \* [R|-Rc] \* P_w[x,y,z,w]*
     """
 
-    def __init__(self, focal_length, roh: ndarray, skew_theta: float, t: ndarray, o: ndarray, phi: ndarray):
+    def __init__(self, o: ndarray, phi: ndarray, focal_length: float = None, roh: ndarray = None,
+                 skew_theta: float = None, t: ndarray = None):
         self.focal_len = focal_length
         self.roh = roh
         self.skew_theta = skew_theta
@@ -37,6 +39,11 @@ class Camera:
         self._intrinsic_t: None | ndarray = None
         self._extrinsic_t: None | ndarray = None
         self._full_t: None | ndarray = None
+
+    def load_intrinsics_from_file(self, path: str):
+        self._intrinsic_t = np.loadtxt(path)
+        self.focal_len = self._intrinsic_t[0, 0]
+        assert self._intrinsic_t[0, 0] == self._intrinsic_t[1, 1], 'Camera intrinsics have non uniform pixels!'
 
     @property
     def intrinsic_transform(self) -> ndarray:
@@ -60,8 +67,7 @@ class Camera:
     def origin(self):
         return self.o.copy()
 
-    @classmethod
-    def basic_camera_at_position(cls, position: ndarray, phi: ndarray = None):
+    def duplicate_camera_at_position(self, position: ndarray, phi: ndarray = None):
         """
         Returns a camera with same simple (normalized) intrinsic calibration at specified extrinsic calibration.
 
@@ -71,15 +77,11 @@ class Camera:
         Returns:
             A camera at the specified position
         """
-        pos = position.copy()
-        if position.size == 3:
-            pos = np.hstack((position.flatten(), 1))
-
-        if phi is None:
-            phi = np.zeros(3)
-
-        camera = cls(focal_length=1, roh=np.ones(2), skew_theta=pi / 2, t=np.zeros(2), o=pos, phi=phi)
-        return camera
+        cam_copy = deepcopy(self)
+        cam_copy.o = position
+        cam_copy.phi = np.array([0, 0, 0]) if phi is None else phi
+        cam_copy._extrinsic_t = None  # In order to recompute extrinsic.
+        return cam_copy
 
     @staticmethod
     def __rotation(phi: ndarray):

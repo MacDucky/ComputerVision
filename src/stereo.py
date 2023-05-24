@@ -20,8 +20,10 @@ class Stereo:
         # Back Projection Matrix from camera 1 (all the pixels represented in camera axis 1)
         self.__back_projection: None | ndarray = None
 
-        self.depth_left = self.depth_right = np.loadtxt(
-            r'C:\Users\Dany\PycharmProjects\ComputerVision\assignment_2\example\depth_left.txt', delimiter=',')
+        self.disparity_left = self.disparity_right = np.loadtxt(
+            r'C:\Users\Dany\PycharmProjects\ComputerVision\assignment_2\example\disp_left.txt', delimiter=',')
+        # self.depth_left = self.depth_right = np.loadtxt(
+        #     r'C:\Users\Dany\PycharmProjects\ComputerVision\assignment_2\example\depth_left.txt', delimiter=',')
 
     def calc_depth_maps(self):
         """
@@ -42,7 +44,8 @@ class Stereo:
 
     def calc_back_projection(self):
         """ Calculates the back projection for the left camera in the setup. """
-        _, i_intrinsics = cv2.invert(self.camera_left.intrinsic_transform, flags=cv2.DECOMP_SVD)
+        # _, i_intrinsics = cv2.invert(self.camera_left.intrinsic_transform, flags=cv2.DECOMP_SVD)
+        i_intrinsics = np.linalg.pinv(self.camera_left.intrinsic_transform)
         height, width = self.depth_left.shape
 
         # Creating a pixel coordinate matrix
@@ -50,11 +53,13 @@ class Stereo:
         y = np.linspace(0, height - 1, height).astype(int)
         [x, y] = np.meshgrid(x, y)
         pixel_coordinates = np.vstack(
-            (x.flatten(), y.flatten(), np.ones_like(x.flatten()) * self.camera_left.focal_len))
+            (x.flatten(), y.flatten(), np.ones_like(x.flatten()) ))#* self.camera_left.focal_len))
 
         # Scale each point on the line from camera center and the pixel coordinate on the image plane(as camera coords),
         # to its original z-value
-        self.__back_projection = i_intrinsics @ pixel_coordinates * self.depth_left.flatten()
+        inverse_points = i_intrinsics @ pixel_coordinates
+        inverse_points = inverse_points / inverse_points[2]
+        self.__back_projection = inverse_points * self.depth_left.flatten()
 
     @property
     def back_projection(self):
