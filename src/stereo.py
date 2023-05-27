@@ -28,107 +28,41 @@ class Stereo:
             delimiter=',')
 
     @staticmethod
-    def create_census(image: ndarray, window_size: tuple[int, int], rho: int, i: int, j: int) -> ndarray:
-        pad_h, pad_w = int((window_size[0] - 1) / 2), int((window_size[1] - 1) / 2)
-        og_image = image[pad_h:-pad_h, pad_w:-pad_w]
+    def __create_census(sliding_window: ndarray, rho: int) -> ndarray:
+        pad_h, pad_w = (sliding_window.shape[2] - 1) // 2, (sliding_window.shape[3] - 1) // 2
 
-        i_range = np.arange(i, i + window_size[0])
-        j_range = np.arange(j, j + window_size[1])
+        # create a sliding window comparison of center values per window
+        center_value = sliding_window[:, :, pad_h, pad_w]
+        center_value = np.full_like(sliding_window, center_value[:, :, None, None])
 
-        xx, yy = np.meshgrid(i_range, j_range)
+        # create a sliding window output values
+        zero_one = np.full(sliding_window.shape, 1)
+        one_zero = np.full(sliding_window.shape, 2)
+        zero_zero = np.full(sliding_window.shape, 0)
+        neg_neg = np.full(sliding_window.shape, 3)
 
-        zero_one = np.full(window_size, 1)
-        one_zero = np.full(window_size, 2)
-        zero_zero = np.full(window_size, 0)
-        neg_neg = np.full(window_size, 3)
+        # apply census mapping on sliding windows
+        census_values = np.where(sliding_window == -1, neg_neg,
+                                 np.where(sliding_window > (center_value + rho), one_zero,
+                                          np.where(sliding_window < (center_value - rho), zero_one,
+                                                   zero_zero)))
 
-        census_transform_values = np.where(image[xx, yy] == -1, neg_neg,
-                                           np.where(image[xx, yy] > (og_image[i, j] + rho), one_zero,
-                                                    np.where(image[xx, yy] < (og_image[i, j] - rho), zero_one,
-                                                             zero_zero)))
-        census_bits = np.unpackbits(census_transform_values.astype(np.uint8), axis=1)
-        reshaped_array = census_bits.reshape(census_transform_values.shape[0], census_transform_values.shape[1] * 8)
+        # unpack decimals to bits
+        census_bits = np.unpackbits(census_values.astype(np.uint8), axis=-1)
+        census_bits = census_bits.flatten().reshape((*sliding_window.shape, 8))
+        # reduce to 2 bit representation
+        census_bits = np.array(census_bits)[:, :, :, :, -2:]
 
-        # Convert each row of reshaped_array into a separate NumPy array
-        bit_array = np.hsplit(reshaped_array, census_transform_values.shape[1])
-        bit_array = np.array(bit_array)[:, :, -2:]
-        final_census = np.where(bit_array == np.full((window_size[0], window_size[1], 2), (1, 1)),
-                                np.full((window_size[0], window_size[1], 2), (-1, -1)), bit_array)
-        flattened = final_census.flatten()
-        return np.hstack([flattened[:int(flattened.shape[0] / 2) - 1], flattened[int(flattened.shape[0] / 2) + 1:]])
-        # bit_array = np.where(np.all(bit_array)
-        # i_range = np.arange(padded_height, height + padded_height)
-        # j_range = np.arange(padded_width, width + padded_width)
+        # map [1,1] to [-1,-1]
+        final_census = np.where((census_bits == [1, 1]).all(axis=-1, keepdims=True), [-1, -1], census_bits)
 
-        # census_transform = -np.ones((window_size[0] * window_size[1], 2))
-        #
-        # i_min = max(i - int((window_size[0] - 1) / 2), 0)
-        # i_max = min(i + int((window_size[0] - 1) / 2) + 1, height)
-        # j_min = max(j - int((window_size[1] - 1) / 2), 0)
-        # j_max = min(j + int((window_size[1] - 1) / 2) + 1, width)
-        #
-        # i_range = np.arange(i_min, i_max)
-        # j_range = np.arange(j_min, j_max)
-        #
-        # i_indices = i_range[:, np.newaxis]
-        # j_indices = j_range
-        #
-        # value_mat = np.array([image[i, j]] * (len(i_indices) * len(j_indices))).reshape(
-        #     (len(i_indices), len(j_indices)))
-        #
-        # census_transform_indices = np.where(True, np.arange(census_transform.shape[0]), 0)
-        # census_transform_values = np.where(image[i_indices, j_indices] > value_mat[:, :] + rho, [0, 1,-2],
-        #                                    np.where(image[i_indices, j_indices] < value_mat[:, :] - rho, [1, 0,-2],
-        #                                             [0, 0,-2]))
-        #
-        # census_transform[census_transform_indices] = census_transform_values
-        #
-        # return census_transform.flatten()
+        # remove center value at each window
+        remove_center_mask = np.ones_like(final_census, dtype=bool)
+        remove_center_mask[:, :, pad_h, pad_w, :] = False
+        final_census = final_census[remove_center_mask]
 
-    # @staticmethod
-    # def create_census(image: ndarray, window_size: tuple[int, int], rho: int, i: int, j: int) -> ndarray:
-    #     height, width = image.shape
-    #     census_transform = -np.ones((window_size[0] * window_size[1], 2))
-    #
-    #     i_range = np.arange(i - int((window_size[0] - 1) / 2), i + int((window_size[0] - 1) / 2) + 1)
-    #     j_range = np.arange(j - int((window_size[1] - 1) / 2), j + int((window_size[0] - 1) / 2) + 1)
-    #
-    #     valid_i = (i_range >= 0) & (i_range < height)
-    #     valid_j = (j_range >= 0) & (j_range < width)
-    #
-    #     # i_indices = np.where(valid_i, i_range, 0)
-    #     # j_indices = np.where(valid_j, j_range, 0)
-    #
-    #     i_indices = np.where(valid_i)[0]
-    #     j_indices = np.where(valid_j)[0]
-    #
-    #     census_transform_indices = np.where(valid_i & valid_j,
-    #                                         np.arange(census_transform.shape[0]).reshape((window_size[0], -1)), 0)
-    #     census_transform_values = np.where(image[i_indices, j_indices] > image[i, j] + rho, [0, 1],
-    #                                        np.where(image[i_indices, j_indices] < image[i, j] - rho, [1, 0], [0, 0]))
-    #
-    #     census_transform[census_transform_indices] = census_transform_values
-    #
-    #     return census_transform.flatten()
-
-    # @staticmethod
-    # def create_census(image: ndarray, window_size: tuple[int, int], rho: int, i: int, j: int) -> ndarray:
-    #     height, width = image.shape
-    #     census_transform = []
-    #     # todo meshgrid for window of size window size
-    #     for i_new in range(i - int((window_size[0] - 1) / 2), i + int((window_size[0] - 1) / 2) + 1):
-    #         for j_new in range(j - int((window_size[1] - 1) / 2), j + int((window_size[0] - 1) / 2) + 1):
-    #             if i_new < 0 or j_new < 0 or i_new >= height or j_new >= width:
-    #                 census_transform.extend([-1, -1])
-    #             elif i == i_new and j == j_new:
-    #                 pass
-    #             elif image[i_new, j_new] > image[i, j] + rho:
-    #                 census_transform.extend([0, 1])
-    #             elif image[i_new, j_new] < image[i, j] - rho:
-    #                 census_transform.extend([1, 0])
-    #             else:
-    #                 census_transform.extend([0, 0])
-    #     return np.array(census_transform)
+        return final_census.reshape(
+            (*sliding_window.shape[:2], 2 * (sliding_window.shape[2] * sliding_window.shape[3] - 1)))
 
     @staticmethod
     def create_census_map(image: ndarray, window_size: tuple, rho: int):
@@ -142,18 +76,10 @@ class Stereo:
         Returns:
             A census map of the image
         """
-        print('Running...')
-        height, width = image.shape
-        census_map = np.empty((height, width, 2 * window_size[0] * window_size[1] - 2))
-        padded_height, padded_width = int((window_size[0] - 1) / 2), int((window_size[1] - 1) / 2)
-        new_image = np.pad(image.astype(int), (padded_height, padded_width), constant_values=-1)
-        for i in range(height):
-            for j in range(width):
-                start_time = perf_counter()
-                census_map[i, j] = Stereo.create_census(new_image, window_size, rho, i, j)
-                total_time = perf_counter() - start_time
-                print(f'[{i},{j}] time: {total_time}')
-        print('Done')
+        padded_height, padded_width = (window_size[0] - 1) // 2, (window_size[1] - 1) // 2
+        padded_image = np.pad(image.astype(int), (padded_height, padded_width), constant_values=-1)
+        sliding_window = np.lib.stride_tricks.sliding_window_view(padded_image, window_size)
+        census_map = Stereo.__create_census(sliding_window, rho)
         return census_map
 
     @staticmethod
@@ -243,9 +169,9 @@ class Stereo:
 
     def create_disparities(self, window_size: tuple[int, int], rho: int):
         """
-        Create disparity maps to both left & right images
+        Create disparity maps to both left & right images, then apply a winner takes it all + postprocessing.
         """
-        """creating census maps"""
+        # Census map creation
         from multiprocessing import Pool
         start_time = perf_counter()
         with Pool(processes=2) as pool:
@@ -254,25 +180,13 @@ class Stereo:
             census_map_left = left_res.get()
             census_map_right = right_res.get()
         total_time = perf_counter() - start_time
-        print(f'Total time taken during create_census_map: {total_time}')
-        # census_map_left = self.create_census_map(self.image_left.grayscale_img, window_size, rho=rho)
-        # total_time = perf_counter() - start_time
-        # print(f'Time taken in create_census_map: {total_time}')
-        # start_time = perf_counter()
-        # census_map_right = self.create_census_map(self.image_right.grayscale_img, window_size, rho=rho)
-        # total_time = perf_counter() - start_time
-        # print(f'Time taken in create_census_map: {total_time}')
+        print(f'Total time taken during census map creation: {total_time}')
 
-        """the cost aggregations for every pixel in the left image"""
+        # the cost aggregations for every pixel in the left image
         left_disparity = self.winner_takes_all(census_map_left, census_map_right, True)
         right_disparity = self.winner_takes_all(census_map_right, census_map_left, False)
-        # right_costs_image = self.cost_aggregation(census_map_right, census_map_left, False)
 
-        """Winner takes all method to creat two disparities maps"""
-        # self.disparity_left = self.winner_takes_all(left_costs_image)
-        # self.disparity_right = self.winner_takes_all(right_costs_image)
-
-        """Threshold the disparity maps"""
+        # Threshold the disparity maps
         # todo: make a threshold using max disparity
 
     def calc_depth_maps(self):
