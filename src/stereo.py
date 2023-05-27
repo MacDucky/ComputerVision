@@ -1,3 +1,5 @@
+import os.path
+
 import cv2
 import numpy as np
 from loader import ImageLoader
@@ -22,10 +24,6 @@ class Stereo:
         self.depth_right: None | ndarray = None
         # Back Projection Matrix from camera 1 (all the pixels represented in camera axis 1)
         self.__back_projection: None | ndarray = None
-
-        self.depth_left = self.depth_right = np.loadtxt(
-            r'C:\Users\User\PycharmProjects\pythonProject\ComputerVision\assignment_2\example\depth_left.txt',
-            delimiter=',')
 
     @staticmethod
     def __create_census(sliding_window: ndarray, rho: int) -> ndarray:
@@ -234,9 +232,9 @@ class Stereo:
 if __name__ == '__main__':
     left_camera = Camera.basic_camera_at_position(position=ndarray([0, 0, 0]))
     right_camera = Camera.basic_camera_at_position(position=ndarray([1, 0, 0]))
-    left_image = ImageLoader(
-        r'C:\Users\User\PycharmProjects\pythonProject\ComputerVision\assignment_2\example\im_left.jpg')
-    right_image = ImageLoader(
-        r'C:\Users\User\PycharmProjects\pythonProject\ComputerVision\assignment_2\example\im_right.jpg')
+    left_im_path = os.path.abspath(r'\assignment_2\example\im_left.jpg')
+    right_im_path = os.path.abspath(r'\assignment_2\example\im_right.jpg')
+    left_image = ImageLoader(left_im_path)
+    right_image = ImageLoader(right_im_path)
     stereo = Stereo(left_image, right_image, left_camera, right_camera, 255)
     stereo.create_disparities(window_size=tuple((5, 5)), rho=2)
