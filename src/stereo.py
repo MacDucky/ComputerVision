@@ -85,20 +85,28 @@ class Stereo:
         return res
 
     @staticmethod
-    def winner_takes_all(census_image_src: ndarray, census_image_candidates: ndarray, is_left_im: bool,
+    def winner_takes_all(census_image_src: ndarray, census_image_candidate: ndarray, is_left_im: bool,
                          arm_length: int = 30):
         """
         Returns the cost image of the source image given the census source image and the other census image.
 
         Parameters:
             census_image_src: the census source image.
-            census_image_candidates: the other census image.
+            census_image_candidate: the other census image.
             is_left_im(bool): True if the source image is the left image.
             arm_length(int): the size of the cost array for each pixel.
         Returns:
             return the cost image
         """
         height, width, _ = census_image_src.shape
+        padded_image = -np.ones((height, width + arm_length, census_image_src.shape[-1]))
+        if is_left_im:
+            padded_image[:, arm_length:] = census_image_candidate
+        else:
+            padded_image[:, :-arm_length] = census_image_candidate
+
+        cost_windows = np.lib.stride_tricks.sliding_window_view(padded_image, arm_length, axis=0)
+
         disparity = np.zeros((height, width))
         delta = -1
         if not is_left_im:
@@ -106,7 +114,7 @@ class Stereo:
         for i in range(height):
             for j in range(width):
                 cost = (
-                    Stereo.compare_census(census_image_src[i, j], census_image_candidates[i, j + delta * (k + 1)]) for k
+                    Stereo.compare_census(census_image_src[i, j], census_image_candidate[i, j + delta * (k + 1)]) for k
                     in range(arm_length))
                 cost = np.array(list(cost))
                 # Get the indices that would sort the array
@@ -171,11 +179,14 @@ class Stereo:
         # Census map creation
         from multiprocessing import Pool
         start_time = perf_counter()
-        with Pool(processes=2) as pool:
-            left_res = pool.apply_async(self.create_census_map, (self.image_left.grayscale_img, window_size, rho))
-            right_res = pool.apply_async(self.create_census_map, (self.image_right.grayscale_img, window_size, rho))
-            census_map_left = left_res.get()
-            census_map_right = right_res.get()
+        # with Pool(processes=2) as pool:
+        #     left_res = pool.apply_async(self.create_census_map, (self.image_left.grayscale_img, window_size, rho))
+        #     right_res = pool.apply_async(self.create_census_map, (self.image_right.grayscale_img, window_size, rho))
+        #     census_map_left = left_res.get()
+        #     census_map_right = right_res.get()
+
+        census_map_left = self.create_census_map(self.image_left.grayscale_img, window_size, rho)
+        census_map_right = self.create_census_map(self.image_right.grayscale_img, window_size, rho)
         total_time = perf_counter() - start_time
         print(f'Total time taken during census map creation: {total_time}')
 
