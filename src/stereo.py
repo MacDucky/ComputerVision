@@ -1,5 +1,4 @@
-import os.path
-
+import os
 import cv2
 import numpy as np
 from loader import ImageLoader
@@ -232,8 +231,8 @@ class Stereo:
 if __name__ == '__main__':
     left_camera = Camera.basic_camera_at_position(position=ndarray([0, 0, 0]))
     right_camera = Camera.basic_camera_at_position(position=ndarray([1, 0, 0]))
-    left_im_path = os.path.abspath(r'\assignment_2\example\im_left.jpg')
-    right_im_path = os.path.abspath(r'\assignment_2\example\im_right.jpg')
+    left_im_path = os.path.abspath(r'..\assignment_2\example\im_left.jpg')
+    right_im_path = os.path.abspath(r'..\assignment_2\example\im_right.jpg')
     left_image = ImageLoader(left_im_path)
     right_image = ImageLoader(right_im_path)
     stereo = Stereo(left_image, right_image, left_camera, right_camera, 255)
