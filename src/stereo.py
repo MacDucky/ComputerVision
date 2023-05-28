@@ -80,8 +80,10 @@ class Stereo:
         return census_map
 
     @staticmethod
-    def compare_census(census1: list, census2: list):
-        res = sum((np.clip(c1 + c2, a_min=0, a_max=2) % 2 for c1, c2 in zip(census1, census2)))
+    def compare_census(census1: ndarray, census2: ndarray):
+        if census1.all(-np.ones_like(census1), keepdims=True) or census1.all(-np.ones_like(census2), keepdims=True):
+            return 255
+        res = np.sum(np.clip(census1 + census2, a_min=0, a_max=2) % 2)
         return res
 
     @staticmethod
@@ -99,14 +101,17 @@ class Stereo:
             return the cost image
         """
         height, width, _ = census_image_src.shape
-        padded_image = -np.ones((height, width + arm_length, census_image_src.shape[-1]))
+        padded_image = -np.ones((height, width + arm_length - 1, census_image_src.shape[-1]))
         if is_left_im:
-            padded_image[:, arm_length:] = census_image_candidate
+            padded_image[:, arm_length:] = census_image_candidate[:, :-1]
         else:
-            padded_image[:, :-arm_length] = census_image_candidate
+            padded_image[:, :-arm_length] = census_image_candidate[:, :-1]
 
-        cost_windows = np.lib.stride_tricks.sliding_window_view(padded_image, arm_length, axis=0)
+        cost_windows = np.lib.stride_tricks.sliding_window_view(padded_image, (arm_length, census_image_src.shape[-1]),
+                                                                axis=(1, 2))
+        cost_windows = cost_windows.reshape((*census_image_src.shape[:2], arm_length, census_image_src.shape[-1]))
 
+        src_window = np.full_like()
         disparity = np.zeros((height, width))
         delta = -1
         if not is_left_im:
