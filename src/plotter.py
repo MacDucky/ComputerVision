@@ -2,10 +2,10 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Interactive plot mode
-import matplotlib
-
-matplotlib.use('TkAgg')
+# # Interactive plot mode
+# import matplotlib
+#
+# matplotlib.use('TkAgg')
 
 
 def show_image(image: np.ndarray, grayscale=True):

@@ -31,120 +31,72 @@ class Synthesizer:
         step = (self.__end_pos - self.__start_pos) / (self.__num_images - 1)  # Calculate the step size
         x_positions = (self.__start_pos + i * step for i in range(self.__num_images))  # Generate the iterable
         if not self.cameras:
-            self.cameras = [Camera.basic_camera_at_position(position=np.array([x, 0, 0])) for x in x_positions]
+            self.cameras = [self.__stereo.camera_left.duplicate_camera_at_position(position=np.array([x, 0, 0])) for x
+                            in x_positions]
 
     def synthesize(self) -> list[ndarray]:
         back_projected = self.__stereo.back_projection
-        # back_projected = back_projected.T[back_projected[2] != 0].T
         back_projected = np.vstack([back_projected, np.ones(back_projected[0].size)])
         reprojected_images = []
         for camera in self.cameras:
+            # reproject points to virtual camera
             reprojected = camera.full_transform @ back_projected
-            reprojected += 1 ** -10
             reprojected = reprojected / reprojected[2]
             reprojected = reprojected[:2]
 
-            if camera == self.__stereo.camera_left:
-                orig_coords = reprojected
-            else:
-                orig_coords = self.__calculate_original_points(camera, self.__stereo.depth_left, reprojected)
-
-            orig_nan_mask = np.isnan(orig_coords.T).any(axis=1)
-            reprojected_nan_mask = np.isnan(reprojected.T).any(axis=1)
-            orig_coords = orig_coords.T[~orig_nan_mask]
-            reprojected = reprojected.T[~reprojected_nan_mask]
             image = self.__stereo.image_left.color_img
-            # reconstructed_image = np.zeros_like(image)
-            hw, coord_size = self.__stereo.image_left.grayscale_img.shape, -1
-            shape = hw[0], hw[1], coord_size
-            reprojected = reprojected.reshape(shape)
-            orig_coords = orig_coords.reshape(shape)
-            reconstructed_image = self.__bilinear_interpolation(image, orig_coords)
-            show_image(reconstructed_image)
-
-        i = 0
-        # return reprojected_images
+            reproj_pts = reprojected.T.reshape((*image.shape[:2], -1))
+            reprojected_image = self.__interpolate(image, reproj_pts)
+            reprojected_images.append(reprojected_image)
+        return reprojected_images
 
     def __calculate_original_points(self, camera: Camera, depth_map: ndarray, reprojected_coords: ndarray):
-        # z/(ft) + x_r
+        # todo: make this an inverse (mapping) reprojection
+        # (ft)/z + x_r
         baseline_len = np.linalg.norm(self.__stereo.camera_left.origin - camera.origin)
         focal_len = self.__stereo.camera_left.focal_len
-        original_pixel_coords = (depth_map.flatten() / (baseline_len * focal_len)) + reprojected_coords
+
+        # _, i_intrinsic = cv2.invert(camera.intrinsic_transform, flags=cv2.DECOMP_SVD)
+
+        original_pixel_coords = ((baseline_len * focal_len) / depth_map[depth_map != 0].flatten()) + reprojected_coords
         return original_pixel_coords
 
     @staticmethod
-    def __bilinear_interpolation(imgs, pix_coords):
-        """
-        Construct a new image by bilinear sampling from the input image.
-        Args:
-            imgs:                   [H, W, C]
-            pix_coords:             [h, w, 2]
-        :return:
-            sampled image           [h, w, c]
-        """
-        img_h, img_w, img_c = imgs.shape
-        pix_h, pix_w, pix_c = pix_coords.shape
-        out_shape = (pix_h, pix_w, img_c)
+    def __interpolate(image, coords):
+        rounded_coords = np.round(coords).astype(int)
 
-        pix_x, pix_y = np.split(pix_coords, [1], axis=-1)  # [pix_h, pix_w, 1]
-        pix_x = pix_x.astype(np.float32)
-        pix_y = pix_y.astype(np.float32)
+        # Height and width constraints
+        height_constraint = (0, image.shape[0] - 1)
+        width_constraint = (0, image.shape[1] - 1)
 
-        # Rounding
-        pix_x0 = np.floor(pix_x)
-        pix_x1 = pix_x0 + 1
-        pix_y0 = np.floor(pix_y)
-        pix_y1 = pix_y0 + 1
+        # Extract the first and second coordinates into separate arrays
+        coords_x = rounded_coords[:, :, 0]  # First coordinate
+        coords_y = rounded_coords[:, :, 1]  # Second coordinate
 
-        # Clip within image boundary
-        y_max = (img_h - 1)
-        x_max = (img_w - 1)
-        zero = np.zeros([1])
+        # Create masks for height and width constraints
+        width_mask = (coords_x >= width_constraint[0]) & (coords_x <= width_constraint[1])
+        height_mask = (coords_y >= height_constraint[0]) & (coords_y <= height_constraint[1])
 
-        pix_x0 = np.clip(pix_x0, zero, x_max)
-        pix_y0 = np.clip(pix_y0, zero, y_max)
-        pix_x1 = np.clip(pix_x1, zero, x_max)
-        pix_y1 = np.clip(pix_y1, zero, y_max)
+        # Combine the masks
+        in_boundary = height_mask & width_mask
+        in_boundary = in_boundary.repeat(2).reshape(*in_boundary.shape, -1)
 
-        # Weights [pix_h, pix_w, 1]
-        wt_x0 = pix_x1 - pix_x
-        wt_x1 = pix_x - pix_x0
-        wt_y0 = pix_y1 - pix_y
-        wt_y1 = pix_y - pix_y0
+        # filter out bad indices
+        reprojected_idxs = np.where(in_boundary, rounded_coords, np.zeros_like(rounded_coords))
 
-        # indices in the image to sample from
-        dim = img_w
+        og_xx, og_yy = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
+        interpolated_image = np.zeros_like(image)
+        interpolated_image[reprojected_idxs[:, :, 1], reprojected_idxs[:, :, 0]] = image[og_yy, og_xx]
 
-        # Apply the lower and upper bound pix coord
-        base_y0 = pix_y0 * dim
-        base_y1 = pix_y1 * dim
-
-        # 4 corner vertices
-        idx00 = (pix_x0 + base_y0).flatten().astype(int)
-        idx01 = (pix_x0 + base_y1).astype(int)
-        idx10 = (pix_x1 + base_y0).astype(int)
-        idx11 = (pix_x1 + base_y1).astype(int)
-
-        # Gather pixels from image using vertices
-        imgs_flat = imgs.reshape([-1, img_c]).astype(np.float32)
-        im00 = imgs_flat[idx00].reshape(out_shape)
-        im01 = imgs_flat[idx01].reshape(out_shape)
-        im10 = imgs_flat[idx10].reshape(out_shape)
-        im11 = imgs_flat[idx11].reshape(out_shape)
-
-        # Apply weights [pix_h, pix_w, 1]
-        w00 = wt_x0 * wt_y0
-        w01 = wt_x0 * wt_y1
-        w10 = wt_x1 * wt_y0
-        w11 = wt_x1 * wt_y1
-        output = w00 * im00 + w01 * im01 + w10 * im10 + w11 * im11
-        return output
+        return interpolated_image
 
 
 if __name__ == '__main__':
-    im_l = ImageLoader(r'C:\Users\Dany\PycharmProjects\ComputerVision\assignment_2\example\im_left.jpg')
-    s = Synthesizer(Stereo(im_l, None, Camera.basic_camera_at_position(position=np.array([0, 0, 0])),
-                           Camera.basic_camera_at_position(position=(np.array([0.1, 0, 0])))), 0, 0.1, 11)
+    im_l = ImageLoader(r'..\assignment_2\example\im_left.jpg')
+    left_cam = Camera(o=np.array([0, 0, 0]), phi=np.array([0, 0, 0]))
+    left_cam.load_intrinsics_from_file(r'C:\Users\Dany\PycharmProjects\ComputerVision\assignment_2\example\K.txt')
+    right_cam = left_cam.duplicate_camera_at_position(position=np.array([0.1, 0, 0]))
+    s = Synthesizer(Stereo(im_l, None, left_cam, right_cam), 0, 0.1, 11)
     for c in s.cameras:
         print(c, end='\n\n')
     for im in s.synthesize():
