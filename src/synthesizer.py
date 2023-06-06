@@ -7,13 +7,6 @@ from src.plotter import show_image
 from src.loader import ImageLoader
 
 
-# class NdArrayWithColor(ndarray):
-#
-#     def __init__(self, shape, color: ndarray, dtype=None, buffer=None, offset=0, strides=None, order=None):
-#         super().__init__(shape, dtype, buffer, offset, strides, order)
-#         self.color = color
-
-
 class Synthesizer:
     def __init__(self, stereo: Stereo, start_x_pos: float, end_x_pos: float, num_synth_pictures: int):
         """
@@ -43,27 +36,18 @@ class Synthesizer:
 
     def synthesize(self) -> list[ndarray]:
         back_projected = self.__stereo.back_projection
-        # back_projected = back_projected.T[back_projected[2] != 0].T
         back_projected = np.vstack([back_projected, np.ones(back_projected[0].size)])
         reprojected_images = []
         for camera in self.cameras:
+            # reproject points to virtual camera
             reprojected = camera.full_transform @ back_projected
-            reprojected = reprojected.T[reprojected.T[:, 2] != 0].T
             reprojected = reprojected / reprojected[2]
             reprojected = reprojected[:2]
 
-            if camera == self.__stereo.camera_left:
-                orig_coords = reprojected
-            else:
-                orig_coords = self.__calculate_original_points(camera, self.__stereo.depth_left, reprojected)
-
-            # orig_nan_mask = np.isnan(orig_coords.T).any(axis=1)
-            # reprojected_nan_mask = np.isnan(reprojected.T).any(axis=1)
-            # orig_coords = orig_coords.T[~orig_nan_mask]
-            # reprojected = reprojected.T[~reprojected_nan_mask]
             image = self.__stereo.image_left.color_img
-            reconstructed_image = self.__interpolate(image, orig_coords, reprojected)
-            reprojected_images.append(reconstructed_image)
+            reproj_pts = reprojected.T.reshape((*image.shape[:2], -1))
+            reprojected_image = self.__interpolate(image, reproj_pts)
+            reprojected_images.append(reprojected_image)
         return reprojected_images
 
     def __calculate_original_points(self, camera: Camera, depth_map: ndarray, reprojected_coords: ndarray):
@@ -78,28 +62,33 @@ class Synthesizer:
         return original_pixel_coords
 
     @staticmethod
-    def __interpolate(image, orig_coords, dest_coords):
-        # todo: convert from nearest neighbour to bilinear interpolation
-        dest_coords = np.round(dest_coords)
-        im = np.zeros_like(image)
-        os = orig_coords.astype(int).T
-        ds = dest_coords.astype(int).T
-        # im[ds[:, 1], ds[:, 0]] = image[os[:, 1], os[:, 0]]
+    def __interpolate(image, coords):
+        rounded_coords = np.round(coords).astype(int)
 
-        # Get image dimensions
-        image_height, image_width = image.shape[:2]
+        # Height and width constraints
+        height_constraint = (0, image.shape[0] - 1)
+        width_constraint = (0, image.shape[1] - 1)
 
-        # Filter out-of-bounds coordinates
-        valid_indices = (os[:, 1] < image_height) & (os[:, 0] < image_width)
+        # Extract the first and second coordinates into separate arrays
+        coords_x = rounded_coords[:, :, 0]  # First coordinate
+        coords_y = rounded_coords[:, :, 1]  # Second coordinate
 
-        # Apply valid indices to os and ds arrays
-        valid_os = os[valid_indices]
-        valid_ds = ds[valid_indices]
+        # Create masks for height and width constraints
+        width_mask = (coords_x >= width_constraint[0]) & (coords_x <= width_constraint[1])
+        height_mask = (coords_y >= height_constraint[0]) & (coords_y <= height_constraint[1])
 
-        # Assign values to im array
-        im[valid_ds[:, 1], valid_ds[:, 0]] = image[valid_os[:, 1], valid_os[:, 0]]
-        return im
-        # return interpolated_image
+        # Combine the masks
+        in_boundary = height_mask & width_mask
+        in_boundary = in_boundary.repeat(2).reshape(*in_boundary.shape, -1)
+
+        # filter out bad indices
+        reprojected_idxs = np.where(in_boundary, rounded_coords, np.zeros_like(rounded_coords))
+
+        og_xx, og_yy = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
+        interpolated_image = np.zeros_like(image)
+        interpolated_image[reprojected_idxs[:, :, 1], reprojected_idxs[:, :, 0]] = image[og_yy, og_xx]
+
+        return interpolated_image
 
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
 import numpy as np
 from numpy import ndarray
-from math import cos, sin, tan, pi
+from math import cos, sin, tan
 from copy import deepcopy
 
 
@@ -16,7 +16,7 @@ class Camera:
         -   Intrisic transformation (K) consists of:
 
             -   *f* **-** focal length, distance from focal point (camera origin) and image plane.
-            -   *roh_u,roh_v =: roh* **-** meters/pixel, these parameters define how 'wide' the pixel is.
+            -   *rho_u,rho_v =: rho* **-** meters/pixel, these parameters define how 'wide' the pixel is.
             -   *skew_theta* **-** skew angle between x and y axes. No skew = pi/2.
             -   *t_x,t_y =: t* **-** translation between image and pixel planes.
 
@@ -28,10 +28,10 @@ class Camera:
     *P[x,y,w] = K \* [I|0] \* [R|-Rc] \* P_w[x,y,z,w]*
     """
 
-    def __init__(self, o: ndarray, phi: ndarray, focal_length: float = None, roh: ndarray = None,
+    def __init__(self, o: ndarray, phi: ndarray, focal_length: float = None, rho: ndarray = None,
                  skew_theta: float = None, t: ndarray = None):
         self.focal_len = focal_length
-        self.roh = roh
+        self.rho = rho
         self.skew_theta = skew_theta
         self.t = t
         self.o = o
@@ -99,8 +99,8 @@ class Camera:
 
     def __calc_intrinsic(self):
         """ Returns K (3x3) """
-        alpha = self.focal_len / self.roh[0]
-        beta = self.focal_len / self.roh[1]
+        alpha = self.focal_len / self.rho[0]
+        beta = self.focal_len / self.rho[1]
         intrinsics = np.array([[alpha, alpha / tan(self.skew_theta), self.t[0]], [0, beta, self.t[1]], [0, 0, 1]])
         return intrinsics
 
@@ -126,7 +126,7 @@ class Camera:
     def __eq__(self, other):
         return \
                 self.focal_len == other.focal_len and \
-                np.array_equal(self.roh, other.roh) and \
+                np.array_equal(self.rho, other.rho) and \
                 self.skew_theta == other.skew_theta and \
                 np.array_equal(self.t, other.t) and \
                 np.array_equal(self.o, other.o) and \
