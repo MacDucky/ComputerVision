@@ -1,3 +1,5 @@
+import os.path
+
 import cv2
 import numpy as np
 from numpy import ndarray
@@ -92,11 +94,17 @@ class Synthesizer:
 
 
 if __name__ == '__main__':
-    im_l = ImageLoader(r'..\assignment_2\example\im_left.jpg')
+    base_path = os.path.abspath(r'../assignment_2/example/')
+    im_l = ImageLoader(os.path.join(base_path, 'im_left.jpg'))
+    im_r = ImageLoader(os.path.join(base_path, 'im_right.jpg'))
+    cam_intrinsics = os.path.join(base_path, 'K.txt')
+    max_disp_path = os.path.join(base_path, 'max_disp.txt')
+    with open(max_disp_path, 'r') as fp:
+        max_disp = int(fp.readline())
     left_cam = Camera(o=np.array([0, 0, 0]), phi=np.array([0, 0, 0]))
-    left_cam.load_intrinsics_from_file(r'C:\Users\Dany\PycharmProjects\ComputerVision\assignment_2\example\K.txt')
+    left_cam.load_intrinsics_from_file(cam_intrinsics)
     right_cam = left_cam.duplicate_camera_at_position(position=np.array([0.1, 0, 0]))
-    s = Synthesizer(Stereo(im_l, None, left_cam, right_cam), 0, 0.1, 11)
+    s = Synthesizer(Stereo(im_l, im_r, left_cam, right_cam, max_disp), 0, 0.1, 11)
     for c in s.cameras:
         print(c, end='\n\n')
     for im in s.synthesize():

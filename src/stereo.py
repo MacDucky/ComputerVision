@@ -7,8 +7,11 @@ from numpy import ndarray
 from timeit import default_timer as perf_counter
 
 
-
 class Stereo:
+    DISPARITY_WIN_SIZE = (15, 15)
+    RHO_THRESHOLD = 1
+    GAUSSIAN_SIGMA = 5
+
     def __init__(self, image_left: ImageLoader, image_right: ImageLoader, camera_left: Camera, camera_right: Camera,
                  max_disparity: int):
         self.image_left = image_left
@@ -26,8 +29,6 @@ class Stereo:
         self.depth_right: None | ndarray = None
         # Back Projection Matrix from camera 1 (all the pixels represented in camera axis 1)
         self.__back_projection: None | ndarray = None
-
-
 
     @staticmethod
     def __create_census(sliding_window: ndarray, rho: int) -> ndarray:
@@ -81,7 +82,7 @@ class Stereo:
 
     @staticmethod
     def __winner_takes_all(census_image_src: ndarray, census_image_candidate: ndarray, is_left_im: bool,
-                         arm_length: int, max_cost: int):
+                           arm_length: int, max_cost: int):
         """
         Returns the cost image of the source image given the census source image and the other census image.
 
@@ -106,7 +107,7 @@ class Stereo:
             cost_volume = np.where(invalid_indices, np.inf, np.sum(
                 np.bitwise_xor(census_image_src[:, :, :], census_image_candidate[:, x_right, :]), axis=2))
 
-            cost_volume = cv2.GaussianBlur(cost_volume, (0, 0), 1)
+            cost_volume = cv2.GaussianBlur(cost_volume, (0, 0), Stereo.GAUSSIAN_SIGMA)
 
             # mask for: new minimum is found
             min_mask = cost_volume < disparity[..., 0]
@@ -136,7 +137,7 @@ class Stereo:
         return disparity
 
     @staticmethod
-    def consistency_test(src_disparity: ndarray, dest_disparity: ndarray, is_left_img: int):
+    def __consistency_test(src_disparity: ndarray, dest_disparity: ndarray, is_left_img: int):
         """
         Returns an improved disparity
 
@@ -202,24 +203,24 @@ class Stereo:
         # the cost aggregations for every pixel in the left image
         start_time_census_right = perf_counter()
         left_disparity = self.__winner_takes_all(census_map_left, census_map_right, True, self.max_disparity,
-                                               max_cost=max_cost)
+                                                 max_cost=max_cost)
         total_time_census_left = perf_counter() - start_time_census_right
         print(f'Total time taken during winner takes all technique for the left disparity: {total_time_census_left}')
 
         start_time_wta_right = perf_counter()
         right_disparity = self.__winner_takes_all(census_map_right, census_map_left, False, self.max_disparity,
-                                                max_cost=max_cost)
+                                                  max_cost=max_cost)
         total_time_wta_right = perf_counter() - start_time_wta_right
         print(f'Total time taken during winner takes all technique for the right disparity: {total_time_wta_right}')
 
         start_time_consistency_left = perf_counter()
-        self.disparity_left = Stereo.consistency_test(left_disparity, right_disparity, True)
+        self.disparity_left = Stereo.__consistency_test(left_disparity, right_disparity, True)
         total_time_consistency_left = perf_counter() - start_time_consistency_left
         print(
             f'Total time taken during consistency test technique for the left disparity: {total_time_consistency_left}')
 
         start_time_consistency_right = perf_counter()
-        self.disparity_right = Stereo.consistency_test(right_disparity, left_disparity, False)
+        self.disparity_right = Stereo.__consistency_test(right_disparity, left_disparity, False)
         total_time_consistency_right = perf_counter() - start_time_consistency_right
         print(
             f'Total time taken during consistency test technique for the right disparity: {total_time_consistency_right}')
@@ -232,7 +233,6 @@ class Stereo:
         # disparity_right_im = cv2.normalize(self.disparity_right, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX,
         #                                    dtype=cv2.CV_8U)
         # compare_images(disparity_left_im, disparity_right_im)
-
 
     def calc_depth_maps(self):
         """
@@ -271,9 +271,15 @@ class Stereo:
     @property
     def back_projection(self):
         if self.disparity_left is None or self.disparity_right is None:
-            self.calc_disparity_maps()
+            self.calc_disparity_maps(window_size=self.DISPARITY_WIN_SIZE, rho=self.RHO_THRESHOLD)
         if self.depth_left is None or self.depth_right is None:
             self.calc_depth_maps()
         if self.__back_projection is None:  # generalize to right camera as well
             self.calc_back_projection()
         return self.__back_projection.copy()
+
+    @classmethod
+    def set_disparity_params(cls, window_size: tuple[int, int], rho_thresh: int, gaussian_sigma: int):
+        cls.DISPARITY_WIN_SIZE = window_size
+        cls.RHO_THRESHOLD = rho_thresh
+        cls.GAUSSIAN_SIGMA = gaussian_sigma
