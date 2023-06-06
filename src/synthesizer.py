@@ -5,7 +5,7 @@ import numpy as np
 from numpy import ndarray
 from src.stereo import Stereo
 from src.camera import Camera
-from src.plotter import show_image
+from src.plotter import show_image, compare_images
 from src.loader import ImageLoader
 
 
@@ -107,5 +107,20 @@ if __name__ == '__main__':
     s = Synthesizer(Stereo(im_l, im_r, left_cam, right_cam, max_disp), 0, 0.1, 11)
     for c in s.cameras:
         print(c, end='\n\n')
+
+    # disp_l = s._Synthesizer__stereo.disparity_left = np.loadtxt(r'C:\Users\Dany\PycharmProjects\ComputerVision\assignment_2\example\disp_left.txt', delimiter=',')
+    # disp_r = s._Synthesizer__stereo.disparity_right = np.loadtxt(r'C:\Users\Dany\PycharmProjects\ComputerVision\assignment_2\example\disp_right.txt', delimiter=',')
+
+    synthesize_images = s.synthesize()
+
+    disp_l = s._Synthesizer__stereo.disparity_left
+    disp_r = s._Synthesizer__stereo.disparity_right
+
+    depth_l = s._Synthesizer__stereo.depth_left
+    depth_r = s._Synthesizer__stereo.depth_right
+
+    compare_images(disp_l, disp_r)
+    compare_images(depth_l, depth_r)
+
     for im in s.synthesize():
         show_image(im)

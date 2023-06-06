@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 # # Interactive plot mode
 # import matplotlib
 #
@@ -60,8 +61,12 @@ def show_coverage_image(images, *hide_images, show_image_idx=True, no_gui=False)
     return coverage_image
 
 
-def compare_images(image1, image2, grayscale=True):
+def compare_images(image1, image2, grayscale: bool = True, normalize: bool = True):
     plt.figure()
+
+    if normalize:
+        image1 = cv2.normalize(image1, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+        image2 = cv2.normalize(image2, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
 
     if grayscale:
         plt.subplot(1, 2, 1)  # last param is the subplot number
