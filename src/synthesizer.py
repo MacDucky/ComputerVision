@@ -43,7 +43,7 @@ class Synthesizer:
         for camera in self.cameras:
             # reproject points to virtual camera
             reprojected = camera.full_transform @ back_projected
-            reprojected = reprojected / reprojected[2]
+            reprojected = np.divide(reprojected, reprojected[2], where=reprojected[2] != 0)
             reprojected = reprojected[:2]
 
             image = self.__stereo.image_left.color_img
@@ -108,8 +108,9 @@ if __name__ == '__main__':
     for c in s.cameras:
         print(c, end='\n\n')
 
-    # disp_l = s._Synthesizer__stereo.disparity_left = np.loadtxt(r'C:\Users\Dany\PycharmProjects\ComputerVision\assignment_2\example\disp_left.txt', delimiter=',')
-    # disp_r = s._Synthesizer__stereo.disparity_right = np.loadtxt(r'C:\Users\Dany\PycharmProjects\ComputerVision\assignment_2\example\disp_right.txt', delimiter=',')
+    # disp_l = s._Synthesizer__stereo.disparity_left = np.loadtxt(os.path.join(base_path, 'disp_left.txt'), delimiter=',')
+    # disp_r = s._Synthesizer__stereo.disparity_right = np.loadtxt(os.path.join(base_path, 'disp_right.txt'),
+    #                                                              delimiter=',')
 
     synthesize_images = s.synthesize()
 
