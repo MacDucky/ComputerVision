@@ -8,7 +8,7 @@ from timeit import default_timer as perf_counter
 
 
 class Stereo:
-    DISPARITY_WIN_SIZE = (15, 15)
+    DISPARITY_WIN_SIZE = (9, 9)
     RHO_THRESHOLD = 1
     GAUSSIAN_SIGMA = 5
 
@@ -107,7 +107,7 @@ class Stereo:
             cost_volume = np.where(invalid_indices, np.inf, np.sum(
                 np.bitwise_xor(census_image_src[:, :, :], census_image_candidate[:, x_right, :]), axis=2))
 
-            cost_volume = cv2.GaussianBlur(cost_volume, (0, 0), Stereo.GAUSSIAN_SIGMA)
+            cost_volume = cv2.GaussianBlur(cost_volume, (15, 15), Stereo.GAUSSIAN_SIGMA)
 
             # mask for: new minimum is found
             min_mask = cost_volume < disparity[..., 0]
@@ -162,24 +162,28 @@ class Stereo:
         consistency_map[y_coords[valid_coords][consistency_mask], x_coords[valid_coords][consistency_mask]] = \
             valid_left_disparity[consistency_mask]
 
+        return consistency_map
+
+    @staticmethod
+    def __bonus(disparity):
+        height, width = disparity.shape
         window_size = 25
         window_half = window_size // 2
 
         for y in range(height):
             for x in range(width):
-                if consistency_map[y, x] == 0:
+                if disparity[y, x] == 0:
                     ymin = max(0, y - window_half)
                     ymax = min(height, y + window_half + 1)
                     xmin = max(0, x - window_half)
                     xmax = min(width, x + window_half + 1)
 
-                    neighbors = consistency_map[ymin:ymax, xmin:xmax]
+                    neighbors = disparity[ymin:ymax, xmin:xmax]
                     unique, counts = np.unique(neighbors, return_counts=True)
                     most_common_value = unique[np.argmax(counts)]
 
-                    consistency_map[y, x] = most_common_value
-
-        return consistency_map
+                    disparity[y, x] = most_common_value
+        return disparity
 
     def calc_disparity_maps(self, window_size: tuple[int, int], rho: int):
         """
@@ -224,6 +228,18 @@ class Stereo:
         total_time_consistency_right = perf_counter() - start_time_consistency_right
         print(
             f'Total time taken during consistency test technique for the right disparity: {total_time_consistency_right}')
+
+        start_time_bonus_left = perf_counter()
+        self.disparity_left = Stereo.__bonus(self.disparity_left)
+        total_time_bonus_left = perf_counter() - start_time_bonus_left
+        print(
+            f'Total time taken during consistency test technique for the left disparity: {total_time_bonus_left}')
+
+        start_time_bonus_right = perf_counter()
+        self.disparity_left = Stereo.__bonus(self.disparity_right)
+        total_time_bonus_right = perf_counter() - start_time_bonus_right
+        print(
+            f'Total time taken during consistency test technique for the left disparity: {total_time_bonus_right}')
 
         total_time_disparity = perf_counter() - start_time_disparity
         print(f'Total time taken during disparity creation: {total_time_disparity}')
