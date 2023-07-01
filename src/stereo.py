@@ -98,40 +98,29 @@ class Stereo:
         height, width, _ = census_image_src.shape
         disparity = np.full((height, width, 4), max_cost)
         for d in range(1, arm_length + 1):
-            x = np.arange(width)
+            og_x_indices = np.arange(width)
 
-            x_right = x[:] - d if is_left_im else x[:] + d
-            invalid_indices = (x_right < 0) | (x_right >= width)
-            x_right = np.where(invalid_indices, 0, x_right)
+            x_indices = og_x_indices - (2 * is_left_im - 1) * d
+            invalid_x_indices = (x_indices < 0) | (x_indices >= width)
+            x_indices = np.where(invalid_x_indices, np.zeros_like(x_indices), x_indices)
 
-            cost_volume = np.where(invalid_indices, np.inf, np.sum(
-                np.bitwise_xor(census_image_src[:, :, :], census_image_candidate[:, x_right, :]), axis=2))
+            cost_value = np.where(invalid_x_indices, np.inf, np.sum(
+                np.bitwise_xor(census_image_src[:, :, :], census_image_candidate[:, x_indices, :]), axis=2))
 
-            cost_volume = cv2.GaussianBlur(cost_volume, (0, 0), Stereo.GAUSSIAN_SIGMA)
+            cost_value = cv2.GaussianBlur(cost_value, (0, 0), Stereo.GAUSSIAN_SIGMA)
 
-            # mask for: new minimum is found
-            min_mask = cost_volume < disparity[..., 0]
-
-            # mask for: another minimum is found
-            equal_mask = np.logical_and(cost_volume == disparity[..., 0], np.logical_not(min_mask))
-
-            # mask for: another minimum is found and it is the third
-            triple_mask = disparity[..., 2] == 1
-
-            # mask for: another minimum is found and we already have three or more
-            more_than_triple_mask = disparity[..., 2] >= 2
-
-            disparity[min_mask, 0] = cost_volume[min_mask]
+            min_mask = cost_value < disparity[..., 0]
+            mask_1 = np.logical_and(cost_value == disparity[..., 0], np.logical_not(min_mask))
+            mask_2 = disparity[..., 2] == 1
+            mask_3 = disparity[..., 2] >= 2
+            disparity[min_mask, 0] = cost_value[min_mask]
             disparity[min_mask, 1] = d
             disparity[min_mask, 2] = 0
             disparity[min_mask, 3] = d
-
-            disparity[equal_mask & triple_mask, 1] = disparity[equal_mask & triple_mask, 3]
-
-            disparity[equal_mask & more_than_triple_mask, 1] = 0
-
-            disparity[equal_mask, 2] += 1
-            disparity[equal_mask, 3] = d
+            disparity[mask_1 & mask_2, 1] = disparity[mask_1 & mask_2, 3]
+            disparity[mask_1 & mask_3, 1] = 0
+            disparity[mask_1, 2] += 1
+            disparity[mask_1, 3] = d
 
         disparity = disparity[..., 1].astype(int)
         return disparity
@@ -150,36 +139,41 @@ class Stereo:
         """
         height, width = src_disparity.shape
         consistency_map = np.zeros((height, width), dtype=np.float32)
-        x_coords, y_coords = np.meshgrid(np.arange(width), np.arange(height))
+        xx, yy = np.meshgrid(np.arange(width), np.arange(height))
 
-        r_x_coords = x_coords - (2 * is_left_img - 1) * src_disparity
-        valid_coords = np.logical_and(r_x_coords >= 0, r_x_coords < width)
+        dest_x_coords = xx - (2 * is_left_img - 1) * src_disparity
+        valid_coords = np.logical_and(dest_x_coords >= 0, dest_x_coords < width)
 
-        valid_left_disparity = src_disparity[valid_coords]
-        valid_right_disparity = dest_disparity[y_coords[valid_coords], r_x_coords[valid_coords].astype(int)]
+        valid_src_disparity = src_disparity[valid_coords]
+        valid_dest_disparity = dest_disparity[yy[valid_coords], dest_x_coords[valid_coords].astype(int)]
 
-        consistency_mask = valid_left_disparity == valid_right_disparity
-        consistency_map[y_coords[valid_coords][consistency_mask], x_coords[valid_coords][consistency_mask]] = \
-            valid_left_disparity[consistency_mask]
+        # making a mask for the valid indices
+        valid_mask = valid_src_disparity == valid_dest_disparity
+        consistency_map[yy[valid_coords][valid_mask], xx[valid_coords][valid_mask]] = \
+            valid_src_disparity[valid_mask]
 
+        return consistency_map
+
+    @staticmethod
+    def __bonus(disparity):
+        height, width = disparity.shape
         window_size = 25
         window_half = window_size // 2
 
         for y in range(height):
             for x in range(width):
-                if consistency_map[y, x] == 0:
+                if disparity[y, x] == 0:
                     ymin = max(0, y - window_half)
                     ymax = min(height, y + window_half + 1)
                     xmin = max(0, x - window_half)
                     xmax = min(width, x + window_half + 1)
 
-                    neighbors = consistency_map[ymin:ymax, xmin:xmax]
+                    neighbors = disparity[ymin:ymax, xmin:xmax]
                     unique, counts = np.unique(neighbors, return_counts=True)
                     most_common_value = unique[np.argmax(counts)]
 
-                    consistency_map[y, x] = most_common_value
-
-        return consistency_map
+                    disparity[y, x] = most_common_value
+        return disparity
 
     def calc_disparity_maps(self, window_size: tuple[int, int], rho: int):
         """
@@ -225,14 +219,21 @@ class Stereo:
         print(
             f'Total time taken during consistency test technique for the right disparity: {total_time_consistency_right}')
 
+        start_time_bonus_left = perf_counter()
+        self.disparity_left = Stereo.__bonus(self.disparity_left)
+        total_time_bonus_left = perf_counter() - start_time_bonus_left
+        print(
+            f'Total time taken during bonus technique for the left disparity: {total_time_bonus_left}')
+
+        start_time_bonus_right = perf_counter()
+        self.disparity_right = Stereo.__bonus(self.disparity_right)
+        total_time_bonus_right = perf_counter() - start_time_bonus_right
+        print(
+            f'Total time taken during bonus technique for the left disparity: {total_time_bonus_right}')
+
         total_time_disparity = perf_counter() - start_time_disparity
         print(f'Total time taken during disparity creation: {total_time_disparity}')
 
-        # disparity_left_im = cv2.normalize(self.disparity_left, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX,
-        #                                   dtype=cv2.CV_8U)
-        # disparity_right_im = cv2.normalize(self.disparity_right, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX,
-        #                                    dtype=cv2.CV_8U)
-        # compare_images(disparity_left_im, disparity_right_im)
 
     def calc_depth_maps(self):
         """

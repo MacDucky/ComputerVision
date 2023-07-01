@@ -9,8 +9,12 @@ import matplotlib.pyplot as plt
 # matplotlib.use('TkAgg')
 
 
-def show_image(image: np.ndarray, grayscale=True):
+def show_image(image: np.ndarray, grayscale=True, normalize: bool = False, equalize: bool = False):
     plt.figure()
+    if normalize:
+        image = cv2.normalize(image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+    if equalize:
+        image = cv2.equalizeHist(image)
     if grayscale:
         plt.imshow(image, cmap='gray')
     else:
@@ -61,7 +65,7 @@ def show_coverage_image(images, *hide_images, show_image_idx=True, no_gui=False)
     return coverage_image
 
 
-def compare_images(image1, image2, grayscale: bool = True, normalize: bool = True, equalize:bool = False):
+def compare_images(image1, image2, grayscale: bool = True, normalize: bool = True, equalize: bool = False):
     plt.figure()
 
     if normalize:

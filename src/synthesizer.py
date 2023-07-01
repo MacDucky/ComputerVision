@@ -88,40 +88,63 @@ class Synthesizer:
 
         og_xx, og_yy = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
         interpolated_image = np.zeros_like(image)
-        interpolated_image[reprojected_idxs[:, :, 1], reprojected_idxs[:, :, 0]] = image[og_yy, og_xx]
+        interpolated_image[reprojected_idxs[:, :, 1], reprojected_idxs[:, :, 0]] = image[og_yy, og_xx, :]
 
         return interpolated_image
 
 
 if __name__ == '__main__':
-    base_path = os.path.abspath(r'../assignment_2/example/')
-    im_l = ImageLoader(os.path.join(base_path, 'im_left.jpg'))
-    im_r = ImageLoader(os.path.join(base_path, 'im_right.jpg'))
-    cam_intrinsics = os.path.join(base_path, 'K.txt')
-    max_disp_path = os.path.join(base_path, 'max_disp.txt')
-    with open(max_disp_path, 'r') as fp:
-        max_disp = int(fp.readline())
-    left_cam = Camera(o=np.array([0, 0, 0]), phi=np.array([0, 0, 0]))
-    left_cam.load_intrinsics_from_file(cam_intrinsics)
-    right_cam = left_cam.duplicate_camera_at_position(position=np.array([0.1, 0, 0]))
-    s = Synthesizer(Stereo(im_l, im_r, left_cam, right_cam, max_disp), 0, 0.1, 11)
-    for c in s.cameras:
-        print(c, end='\n\n')
+    for i in range(5):
+        base_path = os.path.abspath(f'../assignment_2/set_{i+1}/')
+        im_l = ImageLoader(os.path.join(base_path, 'im_left.jpg'))
+        im_r = ImageLoader(os.path.join(base_path, 'im_right.jpg'))
+        cam_intrinsics = os.path.join(base_path, 'K.txt')
+        max_disp_path = os.path.join(base_path, 'max_disp.txt')
+        with open(max_disp_path, 'r') as fp:
+            max_disp = int(fp.readline())
+        left_cam = Camera(o=np.array([0, 0, 0]), phi=np.array([0, 0, 0]))
+        left_cam.load_intrinsics_from_file(cam_intrinsics)
+        right_cam = left_cam.duplicate_camera_at_position(position=np.array([0.1, 0, 0]))
+        s = Synthesizer(Stereo(im_l, im_r, left_cam, right_cam, max_disp), 0, 0.1, 11)
+        for c in s.cameras:
+            print(c, end='\n\n')
 
-    # disp_l = s._Synthesizer__stereo.disparity_left = np.loadtxt(os.path.join(base_path, 'disp_left.txt'), delimiter=',')
-    # disp_r = s._Synthesizer__stereo.disparity_right = np.loadtxt(os.path.join(base_path, 'disp_right.txt'),
-    #                                                              delimiter=',')
+        disp_l = s._Synthesizer__stereo.disparity_left = np.loadtxt(os.path.join(base_path, 'disp_left.txt'), delimiter=',')
+        disp_r = s._Synthesizer__stereo.disparity_right = np.loadtxt(os.path.join(base_path, 'disp_right.txt'),
+                                                                     delimiter=',')
 
-    synthesize_images = s.synthesize()
+        synthesize_images = s.synthesize()
 
-    disp_l = s._Synthesizer__stereo.disparity_left
-    disp_r = s._Synthesizer__stereo.disparity_right
+        disp_l = s._Synthesizer__stereo.disparity_left
+        disp_l_txt_path = os.path.join(base_path, 'disp_left.txt')
+        disp_r = s._Synthesizer__stereo.disparity_right
+        disp_r_txt_path = os.path.join(base_path, 'disp_right.txt')
+        np.savetxt(disp_l_txt_path, disp_l, delimiter=',')
+        np.savetxt(disp_r_txt_path, disp_r, delimiter=',')
 
-    depth_l = s._Synthesizer__stereo.depth_left
-    depth_r = s._Synthesizer__stereo.depth_right
+        corrected_disp_l = show_image(disp_l, normalize=True, equalize=False)
+        disp_l_img_path = disp_l_txt_path.replace('.txt', '.jpg')
+        corrected_disp_r = show_image(disp_r, normalize=True, equalize=False)
+        disp_r_img_path = disp_r_txt_path.replace('.txt', '.jpg')
+        cv2.imwrite(disp_l_img_path, corrected_disp_l)
+        cv2.imwrite(disp_r_img_path, corrected_disp_r)
 
-    compare_images(disp_l, disp_r)
-    compare_images(depth_l, depth_r)
+        depth_l = s._Synthesizer__stereo.depth_left
+        depth_l_txt_path = os.path.join(base_path, 'depth_left.txt')
+        depth_r = s._Synthesizer__stereo.depth_right
+        depth_r_txt_path = os.path.join(base_path, 'depth_right.txt')
+        np.savetxt(depth_l_txt_path, depth_l, delimiter=',')
+        np.savetxt(depth_r_txt_path, depth_r, delimiter=',')
 
-    for im in s.synthesize():
-        show_image(im)
+        corrected_depth_l = show_image(depth_l, normalize=True, equalize=True)
+        depth_l_img_path = depth_l_txt_path.replace('.txt', '.jpg')
+        corrected_depth_r = show_image(depth_r, normalize=True, equalize=True)
+        depth_r_img_path = depth_r_txt_path.replace('.txt', '.jpg')
+        cv2.imwrite(depth_l_img_path, corrected_depth_l)
+        cv2.imwrite(depth_r_img_path, corrected_depth_r)
+
+        for i, im in enumerate(synthesize_images, start=1):
+            s = str(i).zfill(2)
+            synth_path = os.path.join(base_path, f'synth_{s}.jpg')
+            image_rgb = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+            cv2.imwrite(synth_path, image_rgb)
